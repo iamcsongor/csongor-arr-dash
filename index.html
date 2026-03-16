@@ -2134,8 +2134,8 @@ async function loadData() {
         const resp = await fetch('dashboard_data.json');
         if (!resp.ok) throw new Error('Failed to load data: ' + resp.status);
         const full = await resp.json();
-        DATA = full.up_data || {};
-        TESTING_ONLY = full.testing_only_ups || {};
+        DATA = full.up_data || [];
+        TESTING_ONLY = full.testing_only_ups || [];
         SPARKLINE_MONTHS = full.sparkline_months || [];
         BCL = full.bcl || {};
         CEO = full.ceo || {};
@@ -2143,7 +2143,7 @@ async function loadData() {
         const metaEl = document.getElementById('metaInfo');
         if (metaEl) metaEl.textContent = 'Annual Recurring Revenue & Testing Revenue by Ultimate Parent · Extracted ' + (full.meta && full.meta.extracted ? full.meta.extracted : 'N/A');
         // Initialize all views
-        init();
+        if (DATA.length) init();
         initCA();
         renderCA();
     } catch(e) {
