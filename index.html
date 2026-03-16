@@ -2235,6 +2235,25 @@ async function loadData() {
         DATA = full.up_data || [];
         TESTING_ONLY = full.testing_only_ups || [];
         SPARKLINE_MONTHS = full.sparkline_months || [];
+        // Merge testing-only UPs into DATA so they appear in the dropdown
+        TESTING_ONLY.forEach(t => {
+            DATA.push({
+                id: '', name: t.name,
+                b1_arr: 0, b2_arr: 0, total_arr: 0,
+                b1_items: 0, b2_items: 0,
+                account_count: 0, ci_count: 0,
+                hierarchy: [], contract_items: [],
+                ci_accounts: [], ci_billing_statuses: [],
+                testing_rev_total: t.testing_rev_total || 0,
+                testing_rev_yearly: t.testing_rev_yearly || {},
+                testing_rev_sparkline: t.testing_rev_sparkline || [],
+                testing_rev_months: t.testing_rev_months || [],
+                testing_rev_lytd: t.testing_rev_lytd || 0,
+                testing_rev_tytd: t.testing_rev_tytd || 0,
+                testing_rev_nrr: t.testing_rev_nrr,
+                testing_rev_target_2026: 0,
+            });
+        });
         BCL = full.bcl || {};
         CEO = full.ceo || {};
         // Update meta
