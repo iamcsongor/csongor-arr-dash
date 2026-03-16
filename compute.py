@@ -6,6 +6,7 @@
 """
 
 import json
+import os
 import datetime
 import calendar
 from collections import defaultdict
@@ -423,7 +424,7 @@ def main():
         }
 
         # Write JSON
-        output_path = '/sessions/wizardly-exciting-pasteur/repo/dashboard_data.json'
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dashboard_data.json')
         output_json = json.dumps(full_output, indent=2, ensure_ascii=False)
         with open(output_path, 'w') as f:
             f.write(output_json)
