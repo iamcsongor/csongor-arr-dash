@@ -32,8 +32,16 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 /* UP Selector */
 .selector-section { margin-bottom: 24px; }
 .selector-section label { font-size: 13px; font-weight: 600; color: #5a7a78; text-transform: uppercase; letter-spacing: 0.05em; }
-.up-select { width: 100%; max-width: 480px; padding: 10px 14px; border: 2px solid #c8dbd9; border-radius: 10px; font-size: 15px; background: white; margin-top: 6px; transition: border-color 0.2s; font-family: inherit; }
-.up-select:focus { outline: none; border-color: #5CECC6; }
+.up-select { display: none; }
+.up-search-wrap { position: relative; width: 100%; max-width: 520px; margin-top: 6px; }
+.up-search-input { width: 100%; padding: 10px 14px; border: 2px solid #c8dbd9; border-radius: 10px; font-size: 15px; background: white; transition: border-color 0.2s; font-family: inherit; box-sizing: border-box; }
+.up-search-input:focus { outline: none; border-color: #5CECC6; }
+.up-search-dd { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 320px; overflow-y: auto; background: white; border: 2px solid #5CECC6; border-top: none; border-radius: 0 0 10px 10px; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.up-search-dd.open { display: block; }
+.up-search-opt { padding: 8px 14px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+.up-search-opt:hover, .up-search-opt.highlighted { background: #edfcf8; }
+.up-search-opt .up-arr { color: #002C2A; font-weight: 600; }
+.up-search-opt .up-test { color: #5a7a78; font-size: 12px; }
 .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1.5px solid #c8dbd9; background: white; transition: all 0.2s; font-family: inherit; }
 .chip:hover { border-color: #5CECC6; background: #edfcf8; }
@@ -454,6 +462,10 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
   <div class="selector-section">
     <label>Ultimate Parent</label>
     <select class="up-select" id="upSelect" onchange="renderUP()"></select>
+    <div class="up-search-wrap">
+      <input class="up-search-input" id="upSearchInput" type="text" placeholder="Search accounts..." autocomplete="off">
+      <div class="up-search-dd" id="upSearchDD"></div>
+    </div>
     <div class="quick-chips" id="quickChips"></div>
   </div>
 
@@ -534,28 +546,111 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
 }
 
+// ── Recently Viewed ──
+function getRecentUPs() {
+  try { return JSON.parse(localStorage.getItem('cambri_recent_ups') || '[]'); } catch { return []; }
+}
+function addRecentUP(idx) {
+  let recent = getRecentUPs().filter(i => i !== idx);
+  recent.unshift(idx);
+  if (recent.length > 8) recent = recent.slice(0, 8);
+  try { localStorage.setItem('cambri_recent_ups', JSON.stringify(recent)); } catch {}
+}
+
+// ── Searchable dropdown ──
+let upSearchHighlight = -1;
+
+function upBuildOptions(filter) {
+  const dd = document.getElementById('upSearchDD');
+  dd.innerHTML = '';
+  upSearchHighlight = -1;
+  const q = (filter || '').toLowerCase();
+  let count = 0;
+  DATA.forEach((up, i) => {
+    if (q && !up.name.toLowerCase().includes(q)) return;
+    const div = document.createElement('div');
+    div.className = 'up-search-opt';
+    div.dataset.idx = i;
+    const testRev = up.testing_rev_total ? ' | Testing: €' + fmtNum(up.testing_rev_total) : '';
+    div.innerHTML = '<span class="up-arr">' + up.name + '</span> — €' + fmtNum(up.total_arr) + '<span class="up-test">' + testRev + '</span>';
+    div.onclick = () => upSelectIdx(i);
+    dd.appendChild(div);
+    count++;
+  });
+  if (count === 0) dd.innerHTML = '<div style="padding:12px;color:#999;font-size:13px">No matches</div>';
+}
+
+function upSelectIdx(idx) {
+  const sel = document.getElementById('upSelect');
+  const input = document.getElementById('upSearchInput');
+  const dd = document.getElementById('upSearchDD');
+  sel.value = idx;
+  input.value = DATA[idx].name;
+  dd.classList.remove('open');
+  addRecentUP(idx);
+  renderRecentChips();
+  renderUP();
+}
+
+function renderRecentChips() {
+  const chips = document.getElementById('quickChips');
+  chips.innerHTML = '';
+  const recent = getRecentUPs().filter(i => i < DATA.length);
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size:11px;color:#5a7a78;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px;align-self:center;';
+  label.textContent = recent.length ? 'Recent:' : 'Top:';
+  chips.appendChild(label);
+  const list = recent.length ? recent : DATA.slice(0, 8).map((_, i) => i);
+  list.forEach(i => {
+    if (i >= DATA.length) return;
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.textContent = DATA[i].name;
+    c.dataset.idx = i;
+    c.onclick = () => upSelectIdx(i);
+    chips.appendChild(c);
+  });
+}
+
 // ── Init ──
 function init() {
   const sel = document.getElementById('upSelect');
   DATA.forEach((up, i) => {
     const opt = document.createElement('option');
     opt.value = i;
-    const testRev = up.testing_rev_total ? ' | Testing: €' + fmtNum(up.testing_rev_total) : '';
-    opt.textContent = up.name + ' — €' + fmtNum(up.total_arr) + testRev;
     sel.appendChild(opt);
   });
 
-  // Quick chips for top 8
-  const chips = document.getElementById('quickChips');
-  DATA.slice(0, 8).forEach((up, i) => {
-    const c = document.createElement('span');
-    c.className = 'chip';
-    c.textContent = up.name;
-    c.dataset.idx = i;
-    c.onclick = () => { sel.value = i; renderUP(); };
-    chips.appendChild(c);
+  const input = document.getElementById('upSearchInput');
+  const dd = document.getElementById('upSearchDD');
+
+  input.value = DATA[0] ? DATA[0].name : '';
+  upBuildOptions('');
+
+  input.addEventListener('focus', () => {
+    input.select();
+    upBuildOptions(input.value === (DATA[+sel.value] || {}).name ? '' : input.value);
+    dd.classList.add('open');
   });
 
+  input.addEventListener('input', () => {
+    upBuildOptions(input.value);
+    dd.classList.add('open');
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const opts = dd.querySelectorAll('.up-search-opt');
+    if (e.key === 'ArrowDown') { e.preventDefault(); upSearchHighlight = Math.min(upSearchHighlight + 1, opts.length - 1); opts.forEach((o, i) => o.classList.toggle('highlighted', i === upSearchHighlight)); opts[upSearchHighlight]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); upSearchHighlight = Math.max(upSearchHighlight - 1, 0); opts.forEach((o, i) => o.classList.toggle('highlighted', i === upSearchHighlight)); opts[upSearchHighlight]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (upSearchHighlight >= 0 && opts[upSearchHighlight]) { upSelectIdx(+opts[upSearchHighlight].dataset.idx); input.blur(); } }
+    else if (e.key === 'Escape') { dd.classList.remove('open'); input.blur(); }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.up-search-wrap')) dd.classList.remove('open');
+  });
+
+  renderRecentChips();
   renderUP();
 }
 
@@ -565,6 +660,9 @@ function renderUP() {
   ciFilters = { accounts: [], bucket: 'all', contributing: 'all', billingStatus: 'all', startFrom: '', startTo: '', endFrom: '', endTo: '' };
   ciSortCol = null;
 
+  // Update search input and chips
+  const input = document.getElementById('upSearchInput');
+  if (input && currentUP) input.value = currentUP.name;
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', +c.dataset.idx === idx));
 
   renderKPIs();
