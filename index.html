@@ -917,10 +917,100 @@ function renderTestingRevenue() {
 
   tableHTML += '</tbody></table>';
 
+  // ── Monthly Bar+Line Chart ──
+  const months = up.testing_rev_months || SPARKLINE_MONTHS || [];
+  const sparkVals = up.testing_rev_sparkline || [];
+  // Group by year, only 2024+
+  const yearMonths = {};
+  months.forEach((m, i) => {
+    const yr = parseInt(m.split('-')[0]);
+    const mo = parseInt(m.split('-')[1]);
+    if (yr < 2024) return;
+    if (!yearMonths[yr]) yearMonths[yr] = [];
+    yearMonths[yr].push({ mo, val: sparkVals[i] || 0, label: m });
+  });
+  const chartYears = Object.keys(yearMonths).map(Number).sort();
+  const thisYear = new Date().getFullYear();
+
+  let chartHTML = '';
+  if (chartYears.length > 0) {
+    const allVals = [];
+    chartYears.forEach(yr => yearMonths[yr].forEach(d => allVals.push(d.val)));
+    const maxVal = Math.max(...allVals, 1);
+    const chartW = 700, chartH = 220, padL = 60, padB = 30, padT = 10, padR = 10;
+    const plotW = chartW - padL - padR, plotH = chartH - padB - padT;
+    const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const barColors = { [thisYear]: '#002C2A' };
+    const lineColors = ['#5CECC6','#BA6DFB','#FF6B6B'];
+
+    let svg = '<svg width="' + chartW + '" height="' + chartH + '" style="font-family:inherit">';
+    // Y gridlines
+    for (let i = 0; i <= 4; i++) {
+      const yy = padT + plotH - (plotH * i / 4);
+      const lbl = Math.round(maxVal * i / 4);
+      svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (chartW - padR) + '" y2="' + yy + '" stroke="#e0e0e0" stroke-width="1"/>';
+      svg += '<text x="' + (padL - 6) + '" y="' + (yy + 4) + '" text-anchor="end" fill="#888" font-size="10">' + (lbl >= 1000 ? Math.round(lbl/1000) + 'K' : lbl) + '</text>';
+    }
+    // X axis labels (months 1-12)
+    const barW = plotW / 12 * 0.6;
+    for (let mo = 1; mo <= 12; mo++) {
+      const cx = padL + (mo - 0.5) / 12 * plotW;
+      svg += '<text x="' + cx + '" y="' + (chartH - 5) + '" text-anchor="middle" fill="#888" font-size="10">' + moNames[mo-1] + '</text>';
+    }
+
+    // Draw bars for current year, lines for previous years
+    let lineIdx = 0;
+    chartYears.forEach(yr => {
+      const data = yearMonths[yr];
+      if (yr === thisYear) {
+        // Bars
+        data.forEach(d => {
+          const bh = (d.val / maxVal) * plotH;
+          const bx = padL + (d.mo - 0.5) / 12 * plotW - barW / 2;
+          const by = padT + plotH - bh;
+          svg += '<rect x="' + bx + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="' + (barColors[yr] || '#002C2A') + '" rx="2"><title>' + moNames[d.mo-1] + ' ' + yr + ': €' + Math.round(d.val).toLocaleString() + '</title></rect>';
+        });
+      } else {
+        // Line
+        const color = lineColors[lineIdx % lineColors.length];
+        lineIdx++;
+        let pts = data.map(d => {
+          const x = padL + (d.mo - 0.5) / 12 * plotW;
+          const y = padT + plotH - (d.val / maxVal) * plotH;
+          return x + ',' + y;
+        }).join(' ');
+        svg += '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-dasharray="6,3"/>';
+        data.forEach(d => {
+          const x = padL + (d.mo - 0.5) / 12 * plotW;
+          const y = padT + plotH - (d.val / maxVal) * plotH;
+          svg += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + color + '"><title>' + moNames[d.mo-1] + ' ' + yr + ': €' + Math.round(d.val).toLocaleString() + '</title></circle>';
+        });
+      }
+    });
+
+    svg += '</svg>';
+
+    // Legend
+    let legend = '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#666">';
+    chartYears.forEach(yr => {
+      if (yr === thisYear) {
+        legend += '<span><span style="display:inline-block;width:12px;height:12px;background:#002C2A;border-radius:2px;vertical-align:middle;margin-right:4px"></span>' + yr + ' (bars)</span>';
+      } else {
+        const color = lineColors[(chartYears.filter(y => y < thisYear).indexOf(yr)) % lineColors.length];
+        legend += '<span><span style="display:inline-block;width:16px;border-top:2px dashed ' + color + ';vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
+      }
+    });
+    legend += '</div>';
+
+    chartHTML = '<div class="section-header" style="margin-top:20px;">Monthly Testing Revenue</div>' +
+      '<div style="background:white;border-radius:10px;padding:16px;margin-bottom:20px;border:1px solid #e8e8e8">' + svg + legend + '</div>';
+  }
+
   container.innerHTML =
     '<div class="testing-section">' +
     '<h3><span class="icon">🧪</span> Testing Revenue — ' + escHTML(up.name) + '</h3>' +
     kpiStrip +
+    chartHTML +
     '<div class="section-header" style="margin-top:20px;">Account Breakdown <span class="count">' + accsWithTesting.length + ' accounts</span></div>' +
     tableHTML +
     '</div>';

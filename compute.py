@@ -648,8 +648,6 @@ def extract_up_explorer(wb_rr):
         b1 = up_b1_arr.get(up_id, 0)
         b2 = up_b2_arr.get(up_id, 0)
         total = b1 + b2
-        if total <= 0:
-            continue
 
         up_name = accounts.get(up_id, {}).get('name', up_id)
         acc_ids = up_groups.get(up_id, [])
@@ -672,7 +670,7 @@ def extract_up_explorer(wb_rr):
         })
 
     up_data.sort(key=lambda x: -x['total_arr'])
-    print(f"    {len(up_data)} UPs with ARR > 0")
+    print(f"    {len(up_data)} UPs with contract items")
 
     # ── 4. Testing revenue from All Samples ──
     print("    Reading testing revenue...")
@@ -699,7 +697,7 @@ def extract_up_explorer(wb_rr):
 
         if not up_name or not rev or not year or not month:
             continue
-        if status == 'Not to be Invoiced':
+        if status in ('Not to be Invoiced', 'Not reconciled', 'Data Loaded Back Data'):
             continue
         try:
             rev_f = float(rev)
