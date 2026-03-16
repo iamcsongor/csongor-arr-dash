@@ -18,8 +18,8 @@ import requests
 REVENUE_RECON_URL = (
     "https://wiseandsallycom-my.sharepoint.com/:x:/g/personal/"
     "csongor_doma_cambri_io/"
-    "EUVYvPrRZb5Ouu7Tm-eG1aYB3x3wlJLhUQr8VNc5jEG6rQ"
-    "?e=0nKpJe&download=1"
+    "IQC-0I5NvykRQ7kVT77wbQiPATL6NTHnqzRyDhoCcVAoaVc"
+    "?e=UC2Cc0&download=1"
 )
 
 
