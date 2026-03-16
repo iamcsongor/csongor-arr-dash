@@ -395,6 +395,404 @@ def extract_ceo_dashboard(wb_rr):
     }
 
 
+def fmt_date(d):
+    """Format date to ISO string."""
+    if isinstance(d, datetime.datetime):
+        return d.strftime('%Y-%m-%d')
+    if isinstance(d, datetime.date):
+        return d.strftime('%Y-%m-%d')
+    return str(d) if d else ''
+
+
+def fmt_date_display(d):
+    """Format date to dd/mm/yyyy."""
+    if isinstance(d, datetime.datetime):
+        return d.strftime('%d/%m/%Y')
+    if isinstance(d, datetime.date):
+        return d.strftime('%d/%m/%Y')
+    return str(d) if d else ''
+
+
+def extract_up_explorer(wb_rr):
+    """Extract UP Explorer data: accounts, contract items, testing revenue."""
+    print("  Extracting UP Explorer data...")
+    today = datetime.date.today()
+    today_minus_365 = today - datetime.timedelta(days=365)
+    current_year = today.year
+    current_month = today.month
+
+    CUSTOMER_TYPES = {
+        'Customer', 'Customer - Dormant (90days)', 'Customer - Pilot',
+        'Customer - Repeat', 'License Client'
+    }
+    EXCLUDED_STATUSES = {
+        'Pending Details', 'Data Loaded Back Data', 'Not to be Invoiced'
+    }
+
+    # ── 1. Read accounts ──
+    ws_acc = wb_rr['accounts']
+    accounts = {}
+    id15_to_id18 = {}
+    acc_casesafe_to_up = {}
+
+    for _row in ws_acc.iter_rows(min_row=5, values_only=True):
+        row = list(_row)
+        if len(row) < 42:
+            continue
+        acc_id = row[31]  # Col 32 (AF) = Acc Casesafe ID 18 (0-indexed: 31)
+        if not acc_id:
+            continue
+        acc_id = str(acc_id).strip()
+        name = row[7]     # Col 8 (H) = Account Name
+        acc_type = str(row[13] or '')  # Col 14 (N) = Type
+        up_id = str(row[40] or '').strip()  # Col 41 (AO) = Ultimate Parent ID casesafe 18
+
+        accounts[acc_id] = {
+            'name': name,
+            'type': acc_type,
+            'country': row[11] or '',  # Col 12 (L) = Billing Country
+            'parent_id': row[28] or '',  # Col 29 (AC) = Parent Account ID
+            'up_id': up_id,
+            'owner': row[6] or '',  # Col 7 (G) = Account Owner
+            'csm': row[42] or '',  # Col 43 (AQ) = Customer Success Manager
+            'industry': row[33] or row[10] or '',  # Col 34 (AH) Primary Industry or Col 11 (K) Industry
+            'employees': row[20],  # Col 21 (U)
+            'last_activity': fmt_date(row[23]),  # Col 24 (X)
+            'credit_balance': row[46] if len(row) > 46 else 0,  # Col 47 (AU)
+            'rev_target_2026': row[43] if len(row) > 43 else 0,  # Col 44 (AR)
+            'is_customer': acc_type in CUSTOMER_TYPES,
+        }
+        acc_casesafe_to_up[acc_id] = up_id
+        if len(acc_id) >= 15:
+            id15_to_id18[acc_id[:15]] = acc_id
+
+    print(f"    {len(accounts)} accounts")
+
+    # ── 2. Read contract items ──
+    ws_ci = wb_rr['contract items']
+    acc_b1_starts = defaultdict(list)
+    all_ci_raw = []
+
+    for _row in ws_ci.iter_rows(min_row=5, values_only=True):
+        row = list(_row)
+        if len(row) < 58:
+            continue
+
+        acc_id18 = str(row[57] or '').strip()  # Col 58 = Account Casesafe ID 18
+        up_id = acc_casesafe_to_up.get(acc_id18, '')
+        active = row[37]  # Col 38 = Active Contract
+        account = str(row[14] or '')  # Col 15 = Account
+        ci_name = str(row[16] or '')  # Col 17 = Contract Items Name
+        pf = str(row[19] or '')  # Col 20 = Product Family
+        bv = safe_float(row[21])  # Col 22 = Billed Value (converted)
+        billing_status = str(row[23] or '')  # Col 24 = Billing Status
+        start_raw = row[30]  # Col 31 = Start Date
+        end_raw = row[31]   # Col 32 = End Date
+        ci_casesafe18 = str(row[56] or '') if len(row) > 56 else ''  # Col 57 = Contract Line Casesafe 18
+
+        start_d = start_raw.date() if isinstance(start_raw, datetime.datetime) else (
+            start_raw if isinstance(start_raw, datetime.date) else None)
+        end_d = end_raw.date() if isinstance(end_raw, datetime.datetime) else (
+            end_raw if isinstance(end_raw, datetime.date) else None)
+
+        all_ci_raw.append({
+            'up_id': up_id, 'active': active, 'account': account,
+            'pf': pf, 'bv': bv, 'billing_status': billing_status,
+            'start_d': start_d, 'end_d': end_d,
+            'start_raw': start_raw, 'end_raw': end_raw,
+            'ci_name': ci_name, 'ci_id': ci_casesafe18,
+            'acc_id': acc_id18,
+        })
+
+        # Track B1 start dates for cutoff
+        if active == 1 and billing_status not in EXCLUDED_STATUSES:
+            if start_d and end_d and start_d <= today and end_d >= today:
+                acc_b1_starts[account].append(start_d)
+
+    # Cutoff per account
+    acc_cutoff = {}
+    for acc, starts in acc_b1_starts.items():
+        acc_cutoff[acc] = min(starts) if starts else today_minus_365
+
+    # Classify B1/B2
+    BUCKET_ORDER = {'B1': 0, 'B2': 1, 'Excluded': 2, '—': 3}
+    all_ci = []
+    account_b1_arr = defaultdict(float)
+    account_b2_arr = defaultdict(float)
+
+    for ci in all_ci_raw:
+        bucket = '—'
+        if ci['billing_status'] in EXCLUDED_STATUSES:
+            bucket = 'Excluded'
+        elif ci['active'] == 1 and ci['start_d'] and ci['end_d'] and ci['start_d'] <= today and ci['end_d'] >= today:
+            bucket = 'B1'
+        elif ci['billing_status'] not in EXCLUDED_STATUSES and ci['start_d']:
+            cutoff = acc_cutoff.get(ci['account'], today_minus_365)
+            if ci['start_d'] >= cutoff:
+                bucket = 'B2'
+
+        if bucket == 'B1':
+            account_b1_arr[ci['account']] += ci['bv']
+        if bucket == 'B2':
+            account_b2_arr[ci['account']] += ci['bv']
+
+        if ci['up_id']:
+            all_ci.append({
+                'up_id': ci['up_id'],
+                'bucket': bucket,
+                'account': ci['account'],
+                'account_id': ci['acc_id'],
+                'name': ci['ci_name'],
+                'ci_id': ci['ci_id'],
+                'product_family': ci['pf'],
+                'billed_value': ci['bv'],
+                'billing_status': ci['billing_status'],
+                'start_date': fmt_date_display(ci['start_raw']),
+                'end_date': fmt_date_display(ci['end_raw']),
+                'start_iso': fmt_date(ci['start_raw']),
+                'end_iso': fmt_date(ci['end_raw']),
+                'active': 1 if ci['active'] else 0,
+                'contributing': 1 if bucket in ('B1', 'B2') else 0,
+            })
+
+    print(f"    {len(all_ci)} CIs with UP IDs")
+
+    # ── 3. Enrich accounts with ARR ──
+    for acc_id, info in accounts.items():
+        name = info['name']
+        info['b1_arr'] = account_b1_arr.get(name, 0)
+        info['b2_arr'] = account_b2_arr.get(name, 0)
+        info['total_arr'] = info['b1_arr'] + info['b2_arr']
+
+    # Group by UP
+    up_groups = defaultdict(list)
+    for acc_id, info in accounts.items():
+        if info['up_id']:
+            up_groups[info['up_id']].append(acc_id)
+
+    # Build children map
+    children_map = defaultdict(list)
+    for acc_id, info in accounts.items():
+        pid = info['parent_id']
+        if pid:
+            pid_str = str(pid)
+            pid18 = id15_to_id18.get(pid_str[:15] if pid_str else None)
+            if pid18 and pid18 in accounts:
+                children_map[pid18].append(acc_id)
+
+    # DFS hierarchy builder
+    def build_tree(up_id, acc_ids):
+        acc_set = set(acc_ids)
+        roots = []
+        for aid in acc_ids:
+            pid = accounts[aid]['parent_id']
+            if not pid:
+                roots.append(aid)
+                continue
+            pid_str = str(pid)
+            pid18 = id15_to_id18.get(pid_str[:15] if pid_str else None)
+            if not pid18 or pid18 not in acc_set:
+                roots.append(aid)
+        roots.sort(key=lambda x: (accounts[x]['name'] or '').lower())
+
+        def visit(node, level):
+            info = accounts[node]
+            result = [{
+                'id': node, 'name': info['name'], 'type': info['type'],
+                'country': info['country'], 'level': level,
+                'owner': info['owner'], 'csm': info['csm'],
+                'industry': info['industry'], 'is_customer': info['is_customer'],
+                'last_activity': info['last_activity'],
+                'credit_balance': info.get('credit_balance', 0) or 0,
+                'rev_target_2026': info.get('rev_target_2026', 0) or 0,
+                'b1_arr': info['b1_arr'], 'b2_arr': info['b2_arr'],
+                'total_arr': info['total_arr'],
+            }]
+            kids = [c for c in children_map.get(node, []) if c in acc_set]
+            kids.sort(key=lambda x: (accounts[x]['name'] or '').lower())
+            for kid in kids:
+                result.extend(visit(kid, level + 1))
+            return result
+
+        tree = []
+        for root in roots:
+            tree.extend(visit(root, 0))
+        return tree
+
+    # Group CIs by UP
+    ci_by_up = defaultdict(list)
+    for ci in all_ci:
+        ci_by_up[ci['up_id']].append(ci)
+    for up_id in ci_by_up:
+        ci_by_up[up_id].sort(key=lambda x: BUCKET_ORDER.get(x['bucket'], 99))
+
+    # UP-level ARR
+    up_b1_arr = defaultdict(float)
+    up_b2_arr = defaultdict(float)
+    up_b1_items = defaultdict(int)
+    up_b2_items = defaultdict(int)
+    for ci in all_ci:
+        if ci['bucket'] == 'B1':
+            up_b1_arr[ci['up_id']] += ci['billed_value']
+            up_b1_items[ci['up_id']] += 1
+        elif ci['bucket'] == 'B2':
+            up_b2_arr[ci['up_id']] += ci['billed_value']
+            up_b2_items[ci['up_id']] += 1
+
+    up_data = []
+    seen_ups = set()
+    for up_id, items in ci_by_up.items():
+        if not up_id or up_id in seen_ups:
+            continue
+        seen_ups.add(up_id)
+        b1 = up_b1_arr.get(up_id, 0)
+        b2 = up_b2_arr.get(up_id, 0)
+        total = b1 + b2
+        if total <= 0:
+            continue
+
+        up_name = accounts.get(up_id, {}).get('name', up_id)
+        acc_ids = up_groups.get(up_id, [])
+        hierarchy = build_tree(up_id, acc_ids)
+        up_accounts = sorted(set(ci['account'] for ci in items if ci['account']))
+        up_billing_statuses = sorted(set(ci['billing_status'] for ci in items if ci['billing_status']))
+
+        up_data.append({
+            'id': up_id,
+            'name': up_name,
+            'b1_arr': b1, 'b2_arr': b2, 'total_arr': total,
+            'b1_items': up_b1_items.get(up_id, 0),
+            'b2_items': up_b2_items.get(up_id, 0),
+            'account_count': len(acc_ids),
+            'ci_count': len(items),
+            'hierarchy': hierarchy,
+            'contract_items': items,
+            'ci_accounts': up_accounts,
+            'ci_billing_statuses': up_billing_statuses,
+        })
+
+    up_data.sort(key=lambda x: -x['total_arr'])
+    print(f"    {len(up_data)} UPs with ARR > 0")
+
+    # ── 4. Testing revenue from All Samples ──
+    print("    Reading testing revenue...")
+    ws_samples = wb_rr['All Samples All Info New XAPPEX']
+
+    up_monthly_rev = defaultdict(lambda: defaultdict(float))
+    up_yearly_rev = defaultdict(lambda: defaultdict(float))
+    up_total_rev = defaultdict(float)
+    acc_monthly_rev = defaultdict(lambda: defaultdict(float))
+    acc_yearly_rev = defaultdict(lambda: defaultdict(float))
+    acc_total_rev = defaultdict(float)
+
+    for _row in ws_samples.iter_rows(min_row=6, values_only=True):
+        row = list(_row)
+        if len(row) < 128:
+            continue
+        up_name = row[3]        # Col 4 = UP Name
+        acc_name = row[7] if len(row) > 7 else None  # Col 8 = Account
+        month = row[61] if len(row) > 61 else None    # Col 62 = Month Completed
+        rev = row[90] if len(row) > 90 else None      # Col 91 = Revenue (converted)
+        status = row[103] if len(row) > 103 else None  # Col 104 = Status
+        year = row[126] if len(row) > 126 else None    # Col 127 = Year Completed
+        day = row[129] if len(row) > 129 else None     # Col 130 = Day Completed
+
+        if not up_name or not rev or not year or not month:
+            continue
+        if status == 'Not to be Invoiced':
+            continue
+        try:
+            rev_f = float(rev)
+            yr = int(year)
+            mo = int(month)
+        except (ValueError, TypeError):
+            continue
+        if yr > 2100:
+            continue
+
+        key = f"{yr}-{mo:02d}"
+        up_monthly_rev[str(up_name)][key] += rev_f
+        up_yearly_rev[str(up_name)][yr] += rev_f
+        up_total_rev[str(up_name)] += rev_f
+
+        if acc_name:
+            acc_monthly_rev[str(acc_name)][key] += rev_f
+            acc_yearly_rev[str(acc_name)][yr] += rev_f
+            acc_total_rev[str(acc_name)] += rev_f
+
+    print(f"    {len(up_total_rev)} UPs with testing revenue")
+
+    # Sparkline months (last 24)
+    sparkline_months = []
+    for i in range(23, -1, -1):
+        m = current_month - i
+        y = current_year
+        while m <= 0:
+            m += 12
+            y -= 1
+        sparkline_months.append(f"{y}-{m:02d}")
+
+    def compute_ytd_metrics(monthly_dict):
+        lytd = sum(monthly_dict.get(f"{current_year - 1}-{mo:02d}", 0) for mo in range(1, current_month + 1))
+        tytd = sum(monthly_dict.get(f"{current_year}-{mo:02d}", 0) for mo in range(1, current_month + 1))
+        nrr = round((tytd / lytd - 1) * 100) if lytd > 0 else None
+        return round(lytd, 2), round(tytd, 2), nrr
+
+    # Enrich UP data with testing revenue
+    up_name_to_idx = {u['name']: i for i, u in enumerate(up_data)}
+    matched = 0
+    for up_name, total in up_total_rev.items():
+        idx = up_name_to_idx.get(up_name)
+        if idx is not None:
+            up = up_data[idx]
+            up['testing_rev_total'] = total
+            up['testing_rev_yearly'] = dict(sorted(up_yearly_rev[up_name].items()))
+            up['testing_rev_sparkline'] = [round(up_monthly_rev[up_name].get(m, 0), 2) for m in sparkline_months]
+            up['testing_rev_months'] = sparkline_months
+            lytd, tytd, nrr = compute_ytd_metrics(up_monthly_rev[up_name])
+            up['testing_rev_lytd'] = lytd
+            up['testing_rev_tytd'] = tytd
+            up['testing_rev_nrr'] = nrr
+            acc_ids = up_groups.get(up['id'], [])
+            up['testing_rev_target_2026'] = sum(
+                (accounts[aid].get('rev_target_2026', 0) or 0) for aid in acc_ids
+            )
+            matched += 1
+
+    # Enrich hierarchy accounts
+    for up in up_data:
+        for acc in up.get('hierarchy', []):
+            acc_name = acc['name']
+            if acc_name in acc_total_rev:
+                acc['testing_rev_total'] = round(acc_total_rev[acc_name], 2)
+                acc['testing_rev_yearly'] = dict(sorted(acc_yearly_rev[acc_name].items()))
+                acc['testing_rev_sparkline'] = [round(acc_monthly_rev[acc_name].get(m, 0), 2) for m in sparkline_months]
+                lytd, tytd, nrr = compute_ytd_metrics(acc_monthly_rev[acc_name])
+                acc['testing_rev_lytd'] = lytd
+                acc['testing_rev_tytd'] = tytd
+                acc['testing_rev_nrr'] = nrr
+
+    # Testing-only UPs (have testing revenue but no ARR)
+    testing_only_ups = []
+    for up_name, total in sorted(up_total_rev.items(), key=lambda x: -x[1]):
+        if up_name not in up_name_to_idx:
+            lytd, tytd, nrr = compute_ytd_metrics(up_monthly_rev[up_name])
+            testing_only_ups.append({
+                'name': up_name,
+                'testing_rev_total': total,
+                'testing_rev_yearly': dict(sorted(up_yearly_rev[up_name].items())),
+                'testing_rev_sparkline': [round(up_monthly_rev[up_name].get(m, 0), 2) for m in sparkline_months],
+                'testing_rev_months': sparkline_months,
+                'testing_rev_lytd': lytd,
+                'testing_rev_tytd': tytd,
+                'testing_rev_nrr': nrr,
+            })
+
+    print(f"    {matched} matched (ARR+testing), {len(testing_only_ups)} testing-only")
+
+    return up_data, testing_only_ups, sparkline_months
+
+
 def main():
     """Main entry point."""
     print("Starting compute job...")
@@ -409,17 +807,23 @@ def main():
         print("\nExtracting data...")
         bcl_data = extract_big_customer_list(wb_rr)
         ceo_data = extract_ceo_dashboard(wb_rr)
+        up_data, testing_only_ups, sparkline_months = extract_up_explorer(wb_rr)
 
         wb_rr.close()
 
         # Build output
         print("\nBuilding output...")
         full_output = {
+            'up_data': up_data,
+            'testing_only_ups': testing_only_ups,
+            'sparkline_months': sparkline_months,
             'bcl': bcl_data,
             'ceo': ceo_data,
             'meta': {
                 'extracted': today.isoformat(),
                 'source': 'Revenue Recon Auto.xlsx',
+                'total_ups_arr': len(up_data),
+                'testing_only_count': len(testing_only_ups),
             },
         }
 
@@ -431,6 +835,7 @@ def main():
 
         print(f"\nSuccess!")
         print(f"  Wrote {len(output_json)} bytes to {output_path}")
+        print(f"  UP Explorer: {len(up_data)} UPs, {len(testing_only_ups)} testing-only")
         print(f"  BCL: {len(bcl_data['rows'])} customers, {len(bcl_data['month_headers'])} months")
         print(f"  CEO: {len(ceo_data['months'])} months, cumulative chart: {ceo_data['cum_chart']['last_day']} days")
 

@@ -2143,13 +2143,7 @@ async function loadData() {
         const metaEl = document.getElementById('metaInfo');
         if (metaEl) metaEl.textContent = 'Annual Recurring Revenue & Testing Revenue by Ultimate Parent · Extracted ' + (full.meta && full.meta.extracted ? full.meta.extracted : 'N/A');
         // Initialize all views
-        if (DATA.length) {
-            init();
-        } else {
-            // Show no-data message in Customer Analysis panel
-            const upPanel = document.getElementById('upPanel');
-            if (upPanel) upPanel.innerHTML = '<div style="padding:60px 40px;text-align:center;color:#666;font-size:16px"><p style="font-size:24px;margin-bottom:12px;color:#002C2A">Customer Analysis</p><p>This view is available in the local dashboard version.<br>It requires data from working.xlsx which is not included in the cloud pipeline.</p></div>';
-        }
+        if (DATA.length) init();
         initCA();
         renderCA();
     } catch(e) {
