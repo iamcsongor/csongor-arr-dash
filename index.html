@@ -2146,9 +2146,9 @@ async function loadData() {
         if (DATA.length) {
             init();
         } else {
-            // Hide the Customer Analysis (UP Explorer) button when no data
-            const upBtn = document.querySelector('.up-btn');
-            if (upBtn) upBtn.style.display = 'none';
+            // Show no-data message in Customer Analysis panel
+            const upPanel = document.getElementById('upPanel');
+            if (upPanel) upPanel.innerHTML = '<div style="padding:60px 40px;text-align:center;color:#666;font-size:16px"><p style="font-size:24px;margin-bottom:12px;color:#002C2A">Customer Analysis</p><p>This view is available in the local dashboard version.<br>It requires data from working.xlsx which is not included in the cloud pipeline.</p></div>';
         }
         initCA();
         renderCA();
