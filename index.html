@@ -391,8 +391,8 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
   </div>
   <div class="ceo-toggle">
     <button class="ceo-btn" onclick="switchView('ceo')">CEO Dashboard</button>
-    <button class="up-btn" onclick="switchView('up')">UP Explorer</button>
-    <button class="ca-btn active" onclick="switchView('ca')">Customer Analysis</button>
+    <button class="up-btn" onclick="switchView('up')">Customer Analysis</button>
+    <button class="ca-btn active" onclick="switchView('ca')">Revenue Recon</button>
   </div>
 </div>
 <div class="bottom-accent"></div>
@@ -2143,7 +2143,13 @@ async function loadData() {
         const metaEl = document.getElementById('metaInfo');
         if (metaEl) metaEl.textContent = 'Annual Recurring Revenue & Testing Revenue by Ultimate Parent · Extracted ' + (full.meta && full.meta.extracted ? full.meta.extracted : 'N/A');
         // Initialize all views
-        if (DATA.length) init();
+        if (DATA.length) {
+            init();
+        } else {
+            // Hide the Customer Analysis (UP Explorer) button when no data
+            const upBtn = document.querySelector('.up-btn');
+            if (upBtn) upBtn.style.display = 'none';
+        }
         initCA();
         renderCA();
     } catch(e) {
