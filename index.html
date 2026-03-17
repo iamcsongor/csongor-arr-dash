@@ -413,7 +413,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
     <div class="ceo-chart-grid">
       <div class="ceo-chart-card">
         <h3>Testing Revenue MoM</h3>
-        <div class="subtitle">Monthly revenue with YoY comparison, 3-month moving average &amp; forecast</div>
+        <div class="subtitle">Monthly revenue with YoY comparison</div>
         <canvas id="momChart"></canvas>
         <div class="ceo-legend" id="momLegend"></div>
       </div>
@@ -1450,50 +1450,10 @@ function drawMoMChart() {
     ctx.fill();
   }
 
-  // 3MA line (dashed purple)
-  ctx.strokeStyle = '#BA6DFB';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 4]);
-  ctx.beginPath();
-  let started = false;
-  ma3.forEach((v, i) => {
-    if (v !== null) {
-      if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
-      else ctx.lineTo(toX(i), toY(v));
-    }
-  });
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Forecast: extend 3MA for next month if current month is incomplete
-  if (currentIdx >= 2) {
-    const forecastVal = ma3[currentIdx] || ((tyVals[currentIdx] + tyVals[currentIdx-1] + tyVals[currentIdx-2]) / 3);
-    if (forecastVal && currentIdx < tyMonths.length - 1) {
-      ctx.strokeStyle = '#10FBCF';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      ctx.moveTo(toX(currentIdx), toY(tyVals[currentIdx]));
-      ctx.lineTo(toX(currentIdx + 1), toY(forecastVal));
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // Arrow head
-      const ax = toX(currentIdx + 1), ay = toY(forecastVal);
-      ctx.beginPath();
-      ctx.moveTo(ax, ay - 4);
-      ctx.lineTo(ax + 5, ay);
-      ctx.lineTo(ax, ay + 4);
-      ctx.fillStyle = '#10FBCF';
-      ctx.fill();
-    }
-  }
-
   // Legend
   document.getElementById('momLegend').innerHTML =
     '<div class="ceo-legend-item"><div class="ceo-legend-line" style="background:#002C2A"></div>This Year</div>' +
-    '<div class="ceo-legend-item"><div class="ceo-legend-line" style="background:#FA538C;opacity:.5"></div>Last Year</div>' +
-    '<div class="ceo-legend-item"><div class="ceo-legend-dash" style="border-color:#BA6DFB"></div>3-Month MA</div>' +
-    '<div class="ceo-legend-item"><div class="ceo-legend-dash" style="border-color:#10FBCF"></div>Forecast</div>';
+    '<div class="ceo-legend-item"><div class="ceo-legend-line" style="background:#FA538C;opacity:.5"></div>Last Year</div>';
 }
 
 // ── Daily Cumulative Chart ──
@@ -1514,8 +1474,7 @@ function drawCumChart() {
   if (!cum || !cum.series) return;
 
   const series = cum.series;
-  const l8m = cum.l8m_avg || [];
-  const forecast = cum.forecast || [];
+  // l8m and forecast removed per user request
   const lastDay = cum.last_day || 0;
   const thisMtd = cum.this_mtd;
   const avgAtDay = cum.avg_at_day;
@@ -1527,8 +1486,7 @@ function drawCumChart() {
   Object.values(series).forEach(arr => {
     arr.forEach(v => { if (v != null && v > maxVal) maxVal = v; });
   });
-  l8m.forEach(v => { if (v != null && v > maxVal) maxVal = v; });
-  forecast.forEach(v => { if (v != null && v > maxVal) maxVal = v; });
+  // l8m/forecast removed from max calculation
   maxVal *= 1.1;
   if (maxVal === 0) maxVal = 1;
 
@@ -1612,47 +1570,6 @@ function drawCumChart() {
     ctx.setLineDash([]);
   }
 
-  // Draw L8M Average (dashed black, thick)
-  ctx.strokeStyle = '#222';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([8, 4]);
-  ctx.beginPath();
-  let started = false;
-  l8m.forEach((v, i) => {
-    if (v == null) return;
-    if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
-    else ctx.lineTo(toX(i), toY(v));
-  });
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Draw Forecast (dotted purple, from last actual day to end)
-  if (lastDay > 0 && lastDay < maxDays) {
-    ctx.strokeStyle = '#9c27b0';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    for (let i = lastDay - 1; i < maxDays; i++) {
-      const v = forecast[i];
-      if (v == null) continue;
-      if (i === lastDay - 1) ctx.moveTo(toX(i), toY(v));
-      else ctx.lineTo(toX(i), toY(v));
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // Arrow at end
-    const lastFc = forecast[maxDays - 1];
-    if (lastFc != null) {
-      const ax = toX(maxDays - 1), ay = toY(lastFc);
-      ctx.beginPath();
-      ctx.moveTo(ax - 6, ay - 5);
-      ctx.lineTo(ax + 2, ay);
-      ctx.lineTo(ax - 6, ay + 5);
-      ctx.fillStyle = '#9c27b0';
-      ctx.fill();
-    }
-  }
-
   // Draw This Month (solid magenta, thick)
   const tm = series['This Month'];
   if (tm) {
@@ -1686,18 +1603,7 @@ function drawCumChart() {
     ctx.textAlign = 'center';
     ctx.fillText(mtdLabel, xPt, toY(thisMtd) - 10);
 
-    // Avg to date dot (black)
-    if (avgAtDay != null) {
-      ctx.beginPath();
-      ctx.arc(xPt, toY(avgAtDay), 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#222';
-      ctx.fill();
-      const avgLabel = Math.round(avgAtDay / 1000) + 'K';
-      ctx.fillStyle = '#222';
-      ctx.font = 'bold 13px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(avgLabel, xPt, toY(avgAtDay) + 20);
-    }
+    // Avg to date dot removed
   }
 
   // Subtitle
@@ -1710,11 +1616,8 @@ function drawCumChart() {
     ['LM-6', '#c8dbd9', 'line'], ['LM-7', '#c8dbd9', 'line'], ['LM-8', '#c8dbd9', 'line'],
     ['LM-9', '#c8dbd9', 'line'], ['LM-10', '#c8dbd9', 'line'],
     ['YOY LM-11', '#d4a0c0', 'dash'],
-    ['L8M Avg', '#222', 'dash'],
     ['This Month', '#9c27b0', 'line'],
-    ['Forecast', '#9c27b0', 'dot'],
     ['This MTD', '#9c27b0', 'dot-mark'],
-    ['Avg to date', '#222', 'dot-mark'],
   ];
   let legHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:#5e8885">';
   legendItems.forEach(([label, color, type]) => {
@@ -1757,14 +1660,8 @@ function drawCumChart() {
     }
 
     const tmVal = c.tm && c.tm[day] != null ? c.tm[day] : null;
-    const avgVal = c.l8m && c.l8m[day] != null ? c.l8m[day] : null;
     let html = '<strong>Day ' + (day + 1) + '</strong>';
     if (tmVal != null) html += '<br>This Month: <span style="color:#BA6DFB;font-weight:700">€' + Math.round(tmVal).toLocaleString() + '</span>';
-    if (avgVal != null) html += '<br>L8M Avg: <span style="font-weight:700">€' + Math.round(avgVal).toLocaleString() + '</span>';
-    if (tmVal != null && avgVal != null && avgVal > 0) {
-      const pct = ((tmVal / avgVal) * 100).toFixed(0);
-      html += '<br>vs Avg: <span style="color:' + (tmVal >= avgVal ? '#10FBCF' : '#FA538C') + ';font-weight:700">' + pct + '%</span>';
-    }
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';

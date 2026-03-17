@@ -271,49 +271,60 @@ def extract_big_customer_list(wb_rr):
 
 
 def extract_ceo_dashboard(wb_rr):
-    """Extract CEO dashboard data from Revenue Recon workbook."""
+    """Extract CEO dashboard data from All Samples sheet."""
     print("  Extracting CEO dashboard...")
 
     ws_formulas = wb_rr['formulas']
+    ws_samples = wb_rr['All Samples All Info New XAPPEX']
     today = datetime.date.today()
     current_year = today.year
     current_month = today.month
 
-    # Read testing revenue from 'samples testing revenue' (via bcl rows we'll compute)
-    ws_bcl = wb_rr['big customer list']
+    # Excluded statuses (col CZ/104): Not reconciled, Not to be Invoiced, blank
+    EXCLUDED_STATUSES = {'Not reconciled', 'Not to be Invoiced', '', 'None'}
 
-    # Aggregate monthly revenue from BCL
+    # Aggregate from All Samples using Date Completed (col AP=42) and Revenue (col CM=91)
     company_monthly_rev = defaultdict(float)
     company_daily_rev = defaultdict(lambda: defaultdict(float))
+    up_yearly_rev = defaultdict(lambda: defaultdict(float))
 
-    # Read month headers again to align
-    row7_vals = list(
-        ws_bcl.iter_rows(min_row=7, max_row=7, min_col=8, max_col=34, values_only=True)
-    )[0]
-    row8_vals = list(
-        ws_bcl.iter_rows(min_row=8, max_row=8, min_col=8, max_col=34, values_only=True)
-    )[0]
-    month_headers = []
-    for i in range(27):
-        yr = int(row7_vals[i]) if row7_vals[i] else 0
-        mn = int(row8_vals[i]) if row8_vals[i] else 0
-        month_headers.append(f"{yr}-{mn:02d}" if yr and mn else f"m{i}")
-
-    # Aggregate from BCL rows
-    for r_idx in range(9, 296):
-        row = list(
-            ws_bcl.iter_rows(
-                min_row=r_idx, max_row=r_idx, min_col=1, max_col=34, values_only=True
-            )
-        )[0]
-        up_name = safe_str(row[5]) if len(row) > 5 else ''
-        if not up_name:
+    for _row in ws_samples.iter_rows(min_row=6, values_only=True):
+        row = list(_row)
+        if len(row) < 105:
             continue
 
-        # Monthly data: H-AH (indices 7-33)
-        for i in range(7, min(34, len(row))):
-            if i < len(month_headers):
-                company_monthly_rev[month_headers[i - 7]] += safe_float(row[i])
+        date_completed = row[41]  # Col AP (42, 0-idx 41) = Date Completed
+        rev = row[90]             # Col CM (91, 0-idx 90) = Revenue (converted)
+        status = str(row[103] if row[103] else '')  # Col CZ (104, 0-idx 103)
+        up_name = row[3]          # Col 4 = UP Name
+
+        if not date_completed or not rev:
+            continue
+        if status in EXCLUDED_STATUSES:
+            continue
+
+        try:
+            rev_f = float(rev)
+        except (ValueError, TypeError):
+            continue
+
+        # Extract year, month, day from Date Completed
+        if isinstance(date_completed, datetime.datetime):
+            yr, mo, dy = date_completed.year, date_completed.month, date_completed.day
+        elif isinstance(date_completed, datetime.date):
+            yr, mo, dy = date_completed.year, date_completed.month, date_completed.day
+        else:
+            continue
+
+        if yr > 2100 or yr < 2000:
+            continue
+
+        key = f"{yr}-{mo:02d}"
+        company_monthly_rev[key] += rev_f
+        company_daily_rev[key][dy] += rev_f
+
+        if up_name:
+            up_yearly_rev[str(up_name)][yr] += rev_f
 
     # Build CEO months (last 25 months)
     ceo_months = []
@@ -358,20 +369,10 @@ def extract_ceo_dashboard(wb_rr):
         round((tytd_total / lytd_total - 1) * 100, 1) if lytd_total > 0 else None
     )
 
-    # Active customers
+    # Active customers YTD (UPs with revenue this year)
     active_customers_ytd = set()
-    for r_idx in range(9, 296):
-        row = list(
-            ws_bcl.iter_rows(
-                min_row=r_idx, max_row=r_idx, min_col=1, max_col=39, values_only=True
-            )
-        )[0]
-        up_name = safe_str(row[5]) if len(row) > 5 else ''
-        if not up_name:
-            continue
-        # Check TYTD (col AN = 39)
-        tytd_val = safe_float(row[38]) if len(row) > 38 else 0
-        if tytd_val > 0:
+    for up_name, yearly in up_yearly_rev.items():
+        if yearly.get(current_year, 0) > 0:
             active_customers_ytd.add(up_name)
 
     cum_chart_data = extract_cumulative_chart(ws_formulas)
