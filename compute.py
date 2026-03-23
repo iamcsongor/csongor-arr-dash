@@ -515,6 +515,24 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         if ytd_testing_ly > 0 else None
     )
 
+    # ── Total ARR from UP-level accounts ──
+    # Sum hierarchy ARR at UP level only (accounts where acc_id == up_id) to avoid double counting
+    total_live_arr = 0.0
+    total_eoq4_arr = 0.0
+    seen_ups = set()
+    for acc_id, info in accounts.items():
+        up_id = acc_casesafe_to_up.get(acc_id, '')
+        # Only count UP-level accounts (where the account IS the ultimate parent)
+        if up_id and up_id == acc_id and up_id not in seen_ups:
+            seen_ups.add(up_id)
+            total_live_arr += info.get('hierarchy_total_arr', 0) or 0
+            total_eoq4_arr += info.get('eoq4_total', 0) or 0
+
+    arr_change_pct = (
+        round((total_live_arr / total_eoq4_arr - 1) * 100, 1)
+        if total_eoq4_arr > 0 else None
+    )
+
     # ── Grouped testing revenue by dimension ──
     # Group per-account YTD revenue by CSM, Country, Industry, and Cohort
     acc_ytd_ty = samples_data.get('acc_ytd_ty', {})
@@ -577,6 +595,7 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         f"LYTD: {round(ytd_testing_ly):,}, Growth: {ytd_testing_growth}%"
     )
     print(f"    Active customers YTD: {len(active_customers_ytd)}")
+    print(f"    Total Live ARR: {round(total_live_arr):,}, EoQ4 ARR: {round(total_eoq4_arr):,}, Change: {arr_change_pct}%")
     for dim, entries in grouped_testing_rev.items():
         print(f"    Grouped by {dim}: {len(entries)} groups")
 
@@ -593,6 +612,9 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         'ytd_testing_last_year': ytd_testing_ly,
         'ytd_testing_growth': ytd_testing_growth,
         'grouped_testing_rev': grouped_testing_rev,
+        'total_live_arr': round(total_live_arr, 2),
+        'total_eoq4_arr': round(total_eoq4_arr, 2),
+        'arr_change_pct': arr_change_pct,
     }
 
 

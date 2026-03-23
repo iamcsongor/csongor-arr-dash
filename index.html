@@ -1428,10 +1428,22 @@ function renderCEODashboard() {
   const testGrowthArrow = testGrowth != null ? (testGrowth >= 0 ? '▲' : '▼') : '';
   const testGrowthStr = testGrowth != null ? ((testGrowth >= 0 ? '+' : '') + testGrowth + '%') : '—';
 
+  // Total ARR vs EoQ4
+  const liveARR = CEO.total_live_arr || 0;
+  const eoq4ARR = CEO.total_eoq4_arr || 0;
+  const arrChg = CEO.arr_change_pct;
+  const arrChgCls = arrChg != null && arrChg >= 0 ? 'positive' : 'negative';
+  const arrChgArrow = arrChg != null ? (arrChg >= 0 ? '▲' : '▼') : '';
+  const arrChgStr = arrChg != null ? ((arrChg >= 0 ? '+' : '') + arrChg + '%') : '—';
+
   kpiRow.innerHTML =
     '<div class="ceo-kpi"><div class="label">Testing Revenue YTD</div><div class="val">' + fmtEur(testTY) + '</div><div class="sub ' + testGrowthCls + '">' + testGrowthArrow + ' ' + testGrowthStr + ' vs LYTD</div></div>' +
     '<div class="ceo-kpi"><div class="label">Testing Revenue LYTD</div><div class="val">' + fmtEur(testLY) + '</div><div class="sub">Same period last year</div></div>' +
-    '<div class="ceo-kpi"><div class="label">YoY Growth</div><div class="val ' + testGrowthCls + '">' + testGrowthStr + '</div><div class="sub">Year-to-date testing</div></div>' +
+    '<div class="ceo-kpi"><div class="label">Total ARR</div><div class="val">' + fmtEur(liveARR) + '</div>' +
+      '<div class="sub" style="margin-top:4px;font-size:10px;color:#6b8a88;line-height:1.3">' +
+        '<span style="opacity:0.6">EoQ4 \'25: ' + fmtEur(eoq4ARR) + '</span> ' +
+        '<span style="color:' + (arrChg >= 0 ? '#0D9B7A' : '#f87171') + ';font-weight:600">' + arrChgArrow + ' ' + arrChgStr + '</span>' +
+      '</div></div>' +
     '<div class="ceo-kpi"><div class="label">Active Customers (YTD)</div><div class="val">' + CEO.active_customers_ytd + '</div><div class="sub">With testing revenue</div></div>';
 
   drawMoMChart();
