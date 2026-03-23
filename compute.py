@@ -280,6 +280,9 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
     # YTD testing revenue (status != "Not to be Invoiced", date_completed up to today's day-of-year)
     ytd_testing_this_year = 0.0
     ytd_testing_last_year = 0.0
+    # Per-account YTD testing revenue for grouping
+    acc_ytd_ty = defaultdict(float)  # acc_id18 -> TYTD
+    acc_ytd_ly = defaultdict(float)  # acc_id18 -> LYTD
     # The cutoff date for last year is the same month/day but in the previous year
     try:
         ly_cutoff = datetime.date(current_year - 1, today.month, today.day)
@@ -373,8 +376,12 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
             sample_date = datetime.date(yr, mo, dy)
             if yr == current_year and sample_date <= today:
                 ytd_testing_this_year += rev_f
+                if acc_id18:
+                    acc_ytd_ty[acc_id18] += rev_f
             elif yr == current_year - 1 and sample_date <= ly_cutoff:
                 ytd_testing_last_year += rev_f
+                if acc_id18:
+                    acc_ytd_ly[acc_id18] += rev_f
 
     print(f"    {len(up_total_rev)} UPs with testing revenue")
     print(f"    {len(company_monthly_rev)} months of CEO data")
@@ -391,6 +398,8 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
         'up_yearly_rev_ceo': up_yearly_rev_ceo,
         'ytd_testing_this_year': ytd_testing_this_year,
         'ytd_testing_last_year': ytd_testing_last_year,
+        'acc_ytd_ty': dict(acc_ytd_ty),
+        'acc_ytd_ly': dict(acc_ytd_ly),
     }
 
 
@@ -398,7 +407,7 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
 #  CEO DASHBOARD
 # ═══════════════════════════════════════════════════════════════
 
-def extract_ceo_dashboard(samples_data):
+def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
     """Build CEO dashboard from sample aggregations."""
     print("  Building CEO dashboard...")
     today = datetime.date.today()
@@ -432,11 +441,15 @@ def extract_ceo_dashboard(samples_data):
         key = f"{y}-{m:02d}"
         days_in_month = calendar.monthrange(y, m)[1]
         daily = company_daily_rev.get(key, {})
+        # For current month, only include data up to today
+        max_day = today.day if (y == current_year and m == current_month) else days_in_month
         cumulative = []
         running = 0.0
         for d in range(1, days_in_month + 1):
             running += daily.get(d, 0)
-            cumulative.append(round(running, 2))
+            if d <= max_day:
+                cumulative.append(round(running, 2))
+            # skip future days for current month
         ceo_daily_cumulative[key] = cumulative
 
     # KPIs
@@ -476,11 +489,9 @@ def extract_ceo_dashboard(samples_data):
         cum_series[label] = ceo_daily_cumulative.get(key, [])
 
     # Find last actual data day for this month
+    # For the current month, use today's day (data beyond today is just carry-forward)
     this_month_data = cum_series.get('This Month', [])
-    cum_last_day = 0
-    for i, v in enumerate(this_month_data):
-        if v and v > 0:
-            cum_last_day = i + 1
+    cum_last_day = min(today.day, len(this_month_data)) if this_month_data else 0
 
     cum_this_mtd = this_month_data[cum_last_day - 1] if cum_last_day > 0 else None
 
@@ -502,6 +513,73 @@ def extract_ceo_dashboard(samples_data):
         if ytd_testing_ly > 0 else None
     )
 
+    # ── Grouped testing revenue by dimension ──
+    # Group per-account YTD revenue by CSM, Country, Industry, and Cohort
+    acc_ytd_ty = samples_data.get('acc_ytd_ty', {})
+    acc_ytd_ly = samples_data.get('acc_ytd_ly', {})
+
+    # Collect all account IDs that have any YTD revenue
+    all_acc_ids = set(acc_ytd_ty.keys()) | set(acc_ytd_ly.keys())
+
+    # Build dimension lookups from accounts (resolve to UP-level where possible)
+    dim_groups = {
+        'cohort': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
+        'csm': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
+        'country': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
+        'industry': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
+    }
+
+    for acc_id in all_acc_ids:
+        ty = acc_ytd_ty.get(acc_id, 0)
+        ly = acc_ytd_ly.get(acc_id, 0)
+        if ty == 0 and ly == 0:
+            continue
+
+        # Get account info
+        acc_info = accounts.get(acc_id, {})
+        csm = acc_info.get('csm', '') or 'Unassigned'
+        country = acc_info.get('country', '') or 'Unknown'
+        industry = acc_info.get('industry', '') or 'Unknown'
+
+        # Compute cohort from NRR (same logic as BCL)
+        if ly > 0:
+            nrr = round((ty / ly - 1) * 100, 1)
+        elif ty > 0:
+            nrr = 100  # New customer
+        else:
+            nrr = 0
+
+        if nrr > 20:
+            cohort = 'Growing'
+        elif nrr < -20:
+            cohort = 'Declining'
+        elif nrr != 0:
+            cohort = 'Stable'
+        else:
+            cohort = 'New/Unknown'
+
+        dim_groups['cohort'][cohort]['tytd'] += ty
+        dim_groups['cohort'][cohort]['lytd'] += ly
+        dim_groups['csm'][csm]['tytd'] += ty
+        dim_groups['csm'][csm]['lytd'] += ly
+        dim_groups['country'][country]['tytd'] += ty
+        dim_groups['country'][country]['lytd'] += ly
+        dim_groups['industry'][industry]['tytd'] += ty
+        dim_groups['industry'][industry]['lytd'] += ly
+
+    # Convert to serialisable format: list of {label, tytd, lytd, growth}
+    grouped_testing_rev = {}
+    for dim_key, groups in dim_groups.items():
+        entries = []
+        for label, vals in groups.items():
+            tytd = round(vals['tytd'], 2)
+            lytd = round(vals['lytd'], 2)
+            growth = round((tytd / lytd - 1) * 100, 1) if lytd > 0 else (100.0 if tytd > 0 else 0.0)
+            entries.append({'label': label, 'tytd': tytd, 'lytd': lytd, 'growth': growth})
+        # Sort by TYTD descending
+        entries.sort(key=lambda e: e['tytd'], reverse=True)
+        grouped_testing_rev[dim_key] = entries
+
     print(
         f"    LYTD: {round(lytd_total):,}, TYTD: {round(tytd_total):,}, "
         f"Growth: {ytd_growth}%"
@@ -511,6 +589,8 @@ def extract_ceo_dashboard(samples_data):
         f"LYTD: {round(ytd_testing_ly):,}, Growth: {ytd_testing_growth}%"
     )
     print(f"    Active customers YTD: {len(active_customers_ytd)}")
+    for dim, entries in grouped_testing_rev.items():
+        print(f"    Grouped by {dim}: {len(entries)} groups")
 
     return {
         'months': ceo_months,
@@ -524,6 +604,7 @@ def extract_ceo_dashboard(samples_data):
         'ytd_testing_this_year': ytd_testing_ty,
         'ytd_testing_last_year': ytd_testing_ly,
         'ytd_testing_growth': ytd_testing_growth,
+        'grouped_testing_rev': grouped_testing_rev,
     }
 
 
@@ -1087,7 +1168,7 @@ def main():
 
         # 4. Build CEO dashboard
         print("\nBuilding outputs...")
-        ceo_data = extract_ceo_dashboard(samples_data)
+        ceo_data = extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up)
 
         # 5. Build UP Explorer
         up_data, testing_only_ups, sparkline_months = extract_up_explorer(
