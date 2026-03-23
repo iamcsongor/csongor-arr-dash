@@ -874,6 +874,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
         owner = ''
         industry = ''
         tam_type = ''
+        account_cohort = ''
         for aid in acc_ids:
             a = accounts.get(aid, {})
             if a.get('csm') and not csm:
@@ -884,6 +885,8 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
                 industry = a['industry']
             if a.get('tam_type') and not tam_type:
                 tam_type = a['tam_type']
+            if a.get('account_cohort') and not account_cohort:
+                account_cohort = a['account_cohort']
 
         # Monthly testing revenue
         monthly = [round(up_monthly_rev.get(up_name, {}).get(m, 0), 2) for m in month_headers]
@@ -1023,6 +1026,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'ly_vs_ty': round(tytd - lytd, 2),
             'ytd_vs_tgt': 0,
             'growth_cohort': growth_cohort,
+            'account_cohort': account_cohort,
             'tenure': tenure,
             'trend_18m': trend(18),
             'trend_12m': trend(12),
@@ -1099,7 +1103,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'fy25': round(sum(test_data.get(f"2025-{mo:02d}", 0) for mo in range(1, 13)), 2),
             'fc25': 0, 'target26': 0, 'perf_quad': 'Watch', 'rev_gap': 0,
             'ly_vs_ty': round(tytd - lytd, 2), 'ytd_vs_tgt': 0,
-            'growth_cohort': 'New/Unknown', 'tenure': 'New',
+            'growth_cohort': 'New/Unknown', 'account_cohort': '', 'tenure': 'New',
             'trend_18m': '', 'trend_12m': '', 'trend_6m': '',
             'activity': '', 'active_months': 0, 'frequency': 0,
             'first_test': '', 'months_since_first': 0,

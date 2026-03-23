@@ -2138,7 +2138,7 @@ function drawCumChart() {
 }
 
 // ── Customer Analysis ──
-let caFilters = { csm: [], owner: [], cls: [], industry: [], up: [] };
+let caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [] };
 let caSortCol = null;
 let caSortAsc = true;
 
@@ -2149,6 +2149,7 @@ function initCA() {
     { key: 'owner', label: 'Account Owner' },
     { key: 'cls', label: 'Class' },
     { key: 'industry', label: 'Industry' },
+    { key: 'account_cohort', label: 'Account Cohort' },
     { key: 'up', label: 'UP Name' }
   ];
   let html = '';
@@ -2231,7 +2232,7 @@ function caUpdateTrigger(ms) {
 }
 
 function caResetFilters() {
-  caFilters = { csm: [], owner: [], cls: [], industry: [], up: [] };
+  caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [] };
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
   renderCA();
@@ -2243,6 +2244,7 @@ function getFilteredBCL() {
     if (caFilters.owner.length && !caFilters.owner.includes(r.owner)) return false;
     if (caFilters.cls.length && !caFilters.cls.includes(r.cls)) return false;
     if (caFilters.industry.length && !caFilters.industry.includes(r.industry)) return false;
+    if (caFilters.account_cohort.length && !caFilters.account_cohort.includes(r.account_cohort)) return false;
     if (caFilters.up.length && !caFilters.up.includes(r.up)) return false;
     return true;
   });
@@ -2289,7 +2291,7 @@ function drawCAMonthChart(rows) {
   canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
   const W = rect.width, H = rect.height;
-  const pad = { top: 20, right: 20, bottom: 50, left: 70 };
+  const pad = { top: 20, right: 20, bottom: 40, left: 70 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -2301,22 +2303,34 @@ function drawCAMonthChart(rows) {
     if (r.monthly) r.monthly.forEach((v, i) => { totals[i] += (v || 0); });
   });
 
-  // Split into TY (2025+) and LY (2024) for overlay
-  // headers format: "2024-01", "2025-01", etc.
-  const tyStart = headers.findIndex(h => h.startsWith('2025'));
-  const lyStart = headers.findIndex(h => h.startsWith('2024'));
-  const tyMonths = tyStart >= 0 ? totals.slice(tyStart) : [];
-  const lyMonths = lyStart >= 0 ? totals.slice(lyStart, lyStart + 12) : [];
-  const tyHeaders = tyStart >= 0 ? headers.slice(tyStart) : [];
+  // Build Jan-Dec for current year (bars) and previous years (lines)
+  const today = new Date();
+  const ty = today.getFullYear();
+  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const maxVal = Math.max(...tyMonths, ...lyMonths, 1);
-  const barCount = tyHeaders.length;
+  // Build per-year monthly arrays from headers
+  const yearData = {};
+  headers.forEach((h, i) => {
+    const parts = h.split('-');
+    const yr = parseInt(parts[0]);
+    const mo = parseInt(parts[1]) - 1; // 0-based
+    if (!yearData[yr]) yearData[yr] = new Array(12).fill(0);
+    yearData[yr][mo] = totals[i];
+  });
+
+  const tyVals = yearData[ty] || new Array(12).fill(0);
+  const prevYears = Object.keys(yearData).map(Number).filter(y => y < ty).sort();
+
+  const allVals = [...tyVals];
+  prevYears.forEach(y => { allVals.push(...(yearData[y] || [])); });
+  const maxVal = Math.max(...allVals.filter(v => v > 0), 1);
+
+  const barCount = 12;
   const barW = Math.min(cW / barCount * 0.6, 40);
   const gap = (cW - barW * barCount) / (barCount + 1);
 
   ctx.clearRect(0, 0, W, H);
 
-  // Compute nice Y-axis ticks
   function niceStep(maxV) {
     if (maxV <= 0) return 1;
     const pow = Math.pow(10, Math.floor(Math.log10(maxV)));
@@ -2329,35 +2343,29 @@ function drawCAMonthChart(rows) {
   const step = niceStep(maxVal);
   const niceMax = Math.ceil(maxVal / step) * step;
 
-  // Store values for hover tooltip
-  canvas._niceMax = niceMax;
-  canvas._tyMonths = tyMonths;
-  canvas._lyMonths = lyMonths;
-  canvas._tyHeaders = tyHeaders;
-  canvas._padLeft = pad.left;
-  canvas._padTop = pad.top;
-  canvas._cH = cH;
-  canvas._barW = barW;
-  canvas._gap = gap;
-  canvas._barCount = barCount;
+  function barX(i) { return pad.left + gap + i * (barW + gap); }
+  function barCX(i) { return barX(i) + barW / 2; }
+  function toY(v) { return pad.top + cH - (v / niceMax) * cH; }
 
+  // Y-axis grid
   ctx.strokeStyle = '#e8efed';
   ctx.lineWidth = 1;
   ctx.fillStyle = '#5e8885';
   ctx.font = '13px Arial';
   ctx.textAlign = 'right';
   for (let tick = 0; tick <= niceMax; tick += step) {
-    const y = pad.top + cH - (tick / niceMax) * cH;
+    const y = toY(tick);
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
     ctx.fillText(tick >= 1000 ? (tick / 1000).toFixed(0) + 'K' : tick.toString(), pad.left - 8, y + 4);
   }
 
-  // TY bars
-  tyMonths.forEach((v, i) => {
-    const x = pad.left + gap + i * (barW + gap);
+  // Current year bars (subtle with opacity)
+  tyVals.forEach((v, i) => {
+    if (v <= 0) return;
+    const x = barX(i);
     const barH = (v / niceMax) * cH;
     const y = pad.top + cH - barH;
-    ctx.fillStyle = '#002C2A';
+    ctx.fillStyle = 'rgba(0, 44, 42, 0.45)';
     ctx.beginPath();
     const r = Math.min(3, barH / 2);
     ctx.moveTo(x, y + r);
@@ -2367,78 +2375,105 @@ function drawCAMonthChart(rows) {
     ctx.lineTo(x, pad.top + cH);
     ctx.closePath();
     ctx.fill();
+    // Subtle border
+    ctx.strokeStyle = 'rgba(0, 44, 42, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
   });
 
-  // LY overlay line
-  if (lyMonths.length) {
-    ctx.strokeStyle = '#FA538C';
-    ctx.lineWidth = 2;
+  // Previous years as lines
+  const lineColors = ['#FA538C', '#BA6DFB', '#8aaba9'];
+  prevYears.slice(-3).reverse().forEach((yr, idx) => {
+    const vals = yearData[yr] || [];
+    const color = lineColors[idx] || '#8aaba9';
+    const opacity = idx === 0 ? 0.7 : 0.35;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = idx === 0 ? 2 : 1.5;
+    ctx.globalAlpha = opacity;
     ctx.setLineDash([6, 3]);
     ctx.beginPath();
-    lyMonths.forEach((v, i) => {
-      if (i >= barCount) return;
-      const x = pad.left + gap + i * (barW + gap) + barW / 2;
-      const y = pad.top + cH - (v / niceMax) * cH;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    let started = false;
+    vals.forEach((v, i) => {
+      if (v > 0) {
+        const x = barCX(i);
+        const y = toY(v);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
     });
     ctx.stroke();
     ctx.setLineDash([]);
-  }
+    // Dots
+    vals.forEach((v, i) => {
+      if (v > 0) {
+        ctx.beginPath();
+        ctx.arc(barCX(i), toY(v), 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+    });
+    ctx.globalAlpha = 1;
+  });
 
-  // X labels
+  // X labels (Jan-Dec)
   ctx.fillStyle = '#5e8885';
   ctx.font = '13px Arial';
   ctx.textAlign = 'center';
-  tyHeaders.forEach((h, i) => {
-    const x = pad.left + gap + i * (barW + gap) + barW / 2;
-    const parts = h.split('-');
-    const label = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(parts[1]) - 1] || h;
-    ctx.fillText(label, x, pad.top + cH + 16);
-    if (i === 0 || parts[1] === '01') ctx.fillText(parts[0], x, pad.top + cH + 28);
+  monthLabels.forEach((label, i) => {
+    ctx.fillText(label, barCX(i), pad.top + cH + 16);
   });
 
   // Legend
-  document.getElementById('caChartLegend').innerHTML =
-    '<div class="ceo-legend-item"><div class="ceo-legend-line" style="background:#002C2A"></div>This Year</div>' +
-    '<div class="ceo-legend-item"><div class="ceo-legend-dash" style="border-color:#FA538C"></div>Last Year</div>';
+  let legHtml = '<div style="display:flex;gap:14px;font-size:13px;color:#5e8885;align-items:center">' +
+    '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(0,44,42,.45);border:1px solid rgba(0,44,42,.7);border-radius:2px;vertical-align:middle;margin-right:4px"></span>' + ty + '</span>';
+  prevYears.slice(-3).reverse().forEach((yr, idx) => {
+    const color = lineColors[idx] || '#8aaba9';
+    legHtml += '<span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed ' + color + ';opacity:' + (idx === 0 ? '.7' : '.35') + ';vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
+  });
+  legHtml += '</div>';
+  document.getElementById('caChartLegend').innerHTML = legHtml;
+
+  // Store data for hover
+  canvas._ca = { tyVals, yearData, prevYears: prevYears.slice(-3).reverse(), niceMax, barX, barCX, toY, barW, pad, cH, ty, monthLabels };
 
   // Hover tooltip
-  canvas.addEventListener('mousemove', function(e) {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+  canvas.onmousemove = function(e) {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const c = canvas._ca;
+    if (!c) return;
+    let idx = -1;
+    for (let i = 0; i < 12; i++) {
+      const bx = c.barX(i);
+      if (mx >= bx && mx <= bx + c.barW) { idx = i; break; }
+    }
+    if (idx < 0) {
+      const t = document.getElementById('caTooltip');
+      if (t) t.style.display = 'none';
+      return;
+    }
     let tooltip = document.getElementById('caTooltip');
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.id = 'caTooltip';
-      tooltip.style.cssText = 'position:fixed;background:#002C2A;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6';
       document.body.appendChild(tooltip);
     }
-    const c = canvas;
-    const pL = c._padLeft, pT = c._padTop, cHt = c._cH, bW = c._barW, g = c._gap, nm = c._niceMax;
-    const tyM = c._tyMonths, lyM = c._lyMonths, tyH = c._tyHeaders;
-    if (!tyM) return;
-    let found = false;
-    for (let i = 0; i < tyM.length; i++) {
-      const bx = pL + g + i * (bW + g);
-      if (mx >= bx && mx <= bx + bW && my >= pT && my <= pT + cHt) {
-        const tyVal = tyM[i] || 0;
-        const lyVal = (lyM && lyM[i]) || 0;
-        const label = tyH[i] || '';
-        tooltip.innerHTML = '<strong>' + label + '</strong><br>This Year: €' + tyVal.toLocaleString('en', {maximumFractionDigits:0}) + '<br>Last Year: €' + lyVal.toLocaleString('en', {maximumFractionDigits:0});
-        tooltip.style.display = 'block';
-        tooltip.style.left = (e.clientX + 12) + 'px';
-        tooltip.style.top = (e.clientY - 10) + 'px';
-        found = true;
-        break;
-      }
-    }
-    if (!found) tooltip.style.display = 'none';
-  });
-  canvas.addEventListener('mouseout', function() {
+    let html = '<div style="font-weight:700;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:3px">' + c.monthLabels[idx] + '</div>';
+    html += '<div style="display:flex;justify-content:space-between;gap:14px"><span>' + c.ty + '</span><span style="font-weight:600">€' + Math.round(c.tyVals[idx]).toLocaleString() + '</span></div>';
+    c.prevYears.forEach(yr => {
+      const v = (c.yearData[yr] || [])[idx] || 0;
+      if (v > 0) html += '<div style="display:flex;justify-content:space-between;gap:14px;opacity:.7"><span>' + yr + '</span><span>€' + Math.round(v).toLocaleString() + '</span></div>';
+    });
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+  };
+  canvas.onmouseout = function() {
     const t = document.getElementById('caTooltip');
     if (t) t.style.display = 'none';
-  });
+  };
 }
 
 function renderCACohorts(rows) {
