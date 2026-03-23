@@ -1220,12 +1220,13 @@ function getFilteredCIs() {
 
 // ── CI Table ──
 const CI_COLS = [
-  { key: 'bucket', label: 'Status', render: (v, ci) => bucketBadge(v) },
-  { key: 'arr_bucket', label: 'ARR Bucket', render: (v, ci) => v ? '<span class="bucket-badge bucket-' + v + '">' + v + '</span>' : '<span class="bucket-badge bucket-other">—</span>' },
+  { key: 'bucket', label: 'ARR Bucket', render: (v, ci) => bucketBadge(v) },
   { key: 'account', label: 'Account', render: (v, ci) => sfLink(ci.account_id, v) },
   { key: 'name', label: 'Contract Item', render: (v, ci) => sfLink(ci.ci_id, v) },
   { key: 'product_family', label: 'Product Family', render: (v, ci) => pfBadge(v) },
   { key: 'billed_value', label: 'Billed Value', cls: 'num', render: (v, ci) => fmtEur(v) },
+  { key: 'arr_b1', label: 'ARR B1', cls: 'num', render: (v, ci) => v ? fmtEur(v) : '<span style="color:#cbd5e1">—</span>' },
+  { key: 'arr_b2', label: 'ARR B2', cls: 'num', render: (v, ci) => v ? fmtEur(v) : '<span style="color:#cbd5e1">—</span>' },
   { key: 'credit_balance', label: 'Credit Balance', cls: 'num', render: (v, ci) => {
     if (!v) return '<span style="color:#cbd5e1">—</span>';
     const bv = ci.billed_value || 0;

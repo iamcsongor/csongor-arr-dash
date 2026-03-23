@@ -202,6 +202,7 @@ def read_contract_items(wb, acc_casesafe_to_up):
         arr_b2 = safe_float(row[16])
         arr_b1 = safe_float(row[18])
         account = safe_str(row[19])
+        credit_balance = safe_float(row[22]) if len(row) > 22 else 0  # Col 22 (W) = Credit Balance (converted)
         ci_casesafe18 = safe_str(row[27])
         acc_id18 = safe_str(row[28])
         up_name = safe_str(row[29])
@@ -241,6 +242,7 @@ def read_contract_items(wb, acc_casesafe_to_up):
             'end_iso': safe_date(end_raw),
             'active': 1 if active else 0,
             'contributing': contributing,
+            'credit_balance': credit_balance,
         })
 
     print(f"    {len(all_ci)} contract items")
