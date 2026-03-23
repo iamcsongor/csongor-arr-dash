@@ -1410,8 +1410,6 @@ function switchView(view) {
 function renderCEODashboard() {
   // KPIs
   const kpiRow = document.getElementById('ceoKpiRow');
-  const growthCls = CEO.ytd_growth >= 0 ? 'positive' : 'negative';
-  const growthArrow = CEO.ytd_growth >= 0 ? '▲' : '▼';
   // Testing revenue YTD
   const testTY = CEO.ytd_testing_this_year || 0;
   const testLY = CEO.ytd_testing_last_year || 0;
@@ -1421,18 +1419,16 @@ function renderCEODashboard() {
   const testGrowthStr = testGrowth != null ? ((testGrowth >= 0 ? '+' : '') + testGrowth + '%') : '—';
 
   kpiRow.innerHTML =
-    '<div class="ceo-kpi"><div class="label">TYTD Revenue</div><div class="val">' + fmtEur(CEO.tytd) + '</div><div class="sub ' + growthCls + '">' + growthArrow + ' ' + Math.abs(CEO.ytd_growth) + '% YoY</div></div>' +
-    '<div class="ceo-kpi"><div class="label">LYTD Revenue</div><div class="val">' + fmtEur(CEO.lytd) + '</div><div class="sub">Same period last year</div></div>' +
-    '<div class="ceo-kpi"><div class="label">YoY Growth</div><div class="val ' + growthCls + '">' + (CEO.ytd_growth >= 0 ? '+' : '') + CEO.ytd_growth + '%</div><div class="sub">Year-to-date</div></div>' +
-    '<div class="ceo-kpi"><div class="label">Active Customers (YTD)</div><div class="val">' + CEO.active_customers_ytd + '</div><div class="sub">With testing revenue</div></div>' +
-    '<div class="ceo-kpi" style="border-left:3px solid #10FBCF"><div class="label">Testing Revenue YTD</div><div class="val">' + fmtEur(testTY) + '</div><div class="sub ' + testGrowthCls + '">' + testGrowthArrow + ' ' + testGrowthStr + ' vs LYTD</div></div>' +
-    '<div class="ceo-kpi"><div class="label">Testing Revenue LYTD</div><div class="val">' + fmtEur(testLY) + '</div><div class="sub">Same period last year</div></div>';
+    '<div class="ceo-kpi"><div class="label">Testing Revenue YTD</div><div class="val">' + fmtEur(testTY) + '</div><div class="sub ' + testGrowthCls + '">' + testGrowthArrow + ' ' + testGrowthStr + ' vs LYTD</div></div>' +
+    '<div class="ceo-kpi"><div class="label">Testing Revenue LYTD</div><div class="val">' + fmtEur(testLY) + '</div><div class="sub">Same period last year</div></div>' +
+    '<div class="ceo-kpi"><div class="label">YoY Growth</div><div class="val ' + testGrowthCls + '">' + testGrowthStr + '</div><div class="sub">Year-to-date testing</div></div>' +
+    '<div class="ceo-kpi"><div class="label">Active Customers (YTD)</div><div class="val">' + CEO.active_customers_ytd + '</div><div class="sub">With testing revenue</div></div>';
 
   drawMoMChart();
   drawCumChart();
 }
 
-// ── MoM Chart (Testing Revenue with YoY, 3MA, Forecast) ──
+// ── MoM Chart (Testing Revenue Jan-Dec, TY vs LY) ──
 function drawMoMChart() {
   const canvas = document.getElementById('momChart');
   const ctx = canvas.getContext('2d');
@@ -1442,57 +1438,45 @@ function drawMoMChart() {
   canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
   const W = rect.width, H = rect.height;
-  const pad = { top: 20, right: 20, bottom: 50, left: 70 };
+  const pad = { top: 20, right: 20, bottom: 40, left: 70 };
   const chartW = W - pad.left - pad.right;
   const chartH = H - pad.top - pad.bottom;
 
-  const months = CEO.months;
   const rev = CEO.monthly_rev;
-  const n = months.length; // 25 months
-
-  // Current year data is last 15 months (index 12-24), last year is first 15 (index 0-14)
-  // Actually: months has 25 entries. LY = index 0-11 (12 months), TY = index 12-24 (13 months)
-  // For YoY chart: show last 13 months as primary X axis (TY), overlay LY same-month
-  const tyStart = 12;
-  const tyMonths = months.slice(tyStart);
-  const tyVals = tyMonths.map(m => rev[m] || 0);
-  const lyVals = tyMonths.map((m, i) => {
-    const lyMonth = months[i]; // same position offset
-    return rev[lyMonth] || 0;
-  });
-
-  // 3-period moving average
-  const ma3 = tyVals.map((v, i) => {
-    if (i < 2) return null;
-    return (tyVals[i] + tyVals[i-1] + tyVals[i-2]) / 3;
-  });
-
-  // Find current month (might be incomplete)
   const today = new Date();
-  const currentKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-  const currentIdx = tyMonths.indexOf(currentKey);
+  const ty = today.getFullYear();
+  const ly = ty - 1;
+  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build Jan-Dec arrays for TY and LY
+  const tyVals = [];
+  const lyVals = [];
+  for (let m = 1; m <= 12; m++) {
+    const tyKey = ty + '-' + String(m).padStart(2, '0');
+    const lyKey = ly + '-' + String(m).padStart(2, '0');
+    tyVals.push(rev[tyKey] || 0);
+    lyVals.push(rev[lyKey] || 0);
+  }
+
+  // Current month index (0-based)
+  const currentMonthIdx = today.getMonth(); // 0=Jan
 
   const allVals = [...tyVals, ...lyVals].filter(v => v > 0);
   const maxVal = Math.max(...allVals, 1) * 1.15;
-  const xStep = chartW / (tyMonths.length - 1);
+  const xStep = chartW / 11; // 12 months, 11 gaps
 
   function toX(i) { return pad.left + i * xStep; }
   function toY(v) { return pad.top + chartH - (v / maxVal) * chartH; }
 
-  // Clear
   ctx.clearRect(0, 0, W, H);
 
-  // Grid lines
+  // Grid
   ctx.strokeStyle = '#eef3f2';
   ctx.lineWidth = 1;
   const gridSteps = 5;
   for (let i = 0; i <= gridSteps; i++) {
     const y = pad.top + (chartH / gridSteps) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(W - pad.right, y);
-    ctx.stroke();
-    // Y-axis labels
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
     const val = maxVal - (maxVal / gridSteps) * i;
     ctx.fillStyle = '#8aaba9';
     ctx.font = '10px Arial';
@@ -1500,78 +1484,142 @@ function drawMoMChart() {
     ctx.fillText('€' + Math.round(val / 1000) + 'k', pad.left - 8, y + 3);
   }
 
-  // X-axis labels
+  // X-axis
   ctx.fillStyle = '#8aaba9';
   ctx.font = '10px Arial';
   ctx.textAlign = 'center';
-  tyMonths.forEach((m, i) => {
-    const parts = m.split('-');
-    const label = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(parts[1])-1];
-    if (i % 2 === 0 || tyMonths.length <= 13) {
-      ctx.fillText(label, toX(i), H - pad.bottom + 18);
-      if (parseInt(parts[1]) === 1 || i === 0) {
-        ctx.fillText(parts[0], toX(i), H - pad.bottom + 30);
-      }
-    }
+  monthLabels.forEach((label, i) => {
+    ctx.fillText(label, toX(i), H - pad.bottom + 16);
   });
 
-  // Draw LY line (pink, thin)
-  ctx.strokeStyle = '#FA538C';
+  // Draw LY line (dashed, muted purple)
+  ctx.strokeStyle = '#9c27b0';
   ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.5;
-  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.4;
+  ctx.setLineDash([6, 4]);
   ctx.beginPath();
+  let lyStarted = false;
   lyVals.forEach((v, i) => {
     if (v > 0) {
-      if (i === 0 || lyVals[i-1] === 0) ctx.moveTo(toX(i), toY(v));
+      if (!lyStarted) { ctx.moveTo(toX(i), toY(v)); lyStarted = true; }
       else ctx.lineTo(toX(i), toY(v));
     }
   });
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  // Draw TY line (solid teal)
-  ctx.strokeStyle = '#002C2A';
+  // LY dots
+  lyVals.forEach((v, i) => {
+    if (v > 0) {
+      ctx.beginPath();
+      ctx.arc(toX(i), toY(v), 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#9c27b0';
+      ctx.globalAlpha = 0.4;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  });
+
+  // Draw TY line (solid purple) — only completed months + current as open circle
+  const lastCompletedIdx = currentMonthIdx - 1; // months before current are complete
+  ctx.strokeStyle = '#9c27b0';
   ctx.lineWidth = 2.5;
   ctx.setLineDash([]);
   ctx.beginPath();
-  const lastSolidIdx = currentIdx >= 0 ? currentIdx - 1 : tyVals.length - 1;
+  let tyStarted = false;
   tyVals.forEach((v, i) => {
-    if (i <= lastSolidIdx && v > 0) {
-      if (i === 0) ctx.moveTo(toX(i), toY(v));
+    if (i <= lastCompletedIdx && v > 0) {
+      if (!tyStarted) { ctx.moveTo(toX(i), toY(v)); tyStarted = true; }
       else ctx.lineTo(toX(i), toY(v));
     }
   });
   ctx.stroke();
 
-  // Draw TY dots
+  // TY dots (solid)
   tyVals.forEach((v, i) => {
-    if (v > 0 && i <= lastSolidIdx) {
+    if (v > 0 && i <= lastCompletedIdx) {
       ctx.beginPath();
-      ctx.arc(toX(i), toY(v), 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#002C2A';
+      ctx.arc(toX(i), toY(v), 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#9c27b0';
       ctx.fill();
     }
   });
 
-  // Current month dot (open circle = incomplete)
-  if (currentIdx >= 0 && tyVals[currentIdx] > 0) {
+  // Dashed line from last completed to current month
+  if (lastCompletedIdx >= 0 && tyVals[lastCompletedIdx] > 0 && tyVals[currentMonthIdx] > 0) {
+    ctx.strokeStyle = '#9c27b0';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
     ctx.beginPath();
-    ctx.arc(toX(currentIdx), toY(tyVals[currentIdx]), 4, 0, Math.PI * 2);
-    ctx.strokeStyle = '#002C2A';
+    ctx.moveTo(toX(lastCompletedIdx), toY(tyVals[lastCompletedIdx]));
+    ctx.lineTo(toX(currentMonthIdx), toY(tyVals[currentMonthIdx]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Current month dot (open circle = incomplete)
+  if (tyVals[currentMonthIdx] > 0) {
+    ctx.beginPath();
+    ctx.arc(toX(currentMonthIdx), toY(tyVals[currentMonthIdx]), 4.5, 0, Math.PI * 2);
+    ctx.strokeStyle = '#9c27b0';
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.fillStyle = '#fff';
     ctx.fill();
+    // Label for current month value
+    ctx.fillStyle = '#9c27b0';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('€' + Math.round(tyVals[currentMonthIdx] / 1000) + 'k', toX(currentMonthIdx), toY(tyVals[currentMonthIdx]) - 12);
   }
+
+  // Store data for hover tooltip
+  canvas._mom = { toX, toY, tyVals, lyVals, monthLabels, currentMonthIdx, maxVal, pad, chartW, chartH, ty, ly };
+
+  // Hover tooltip
+  canvas.onmousemove = function(e) {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const dayF = (mx - pad.left) / xStep;
+    const idx = Math.round(dayF);
+    if (idx < 0 || idx > 11 || mx < pad.left || mx > pad.left + chartW) {
+      const t = document.getElementById('momTooltip');
+      if (t) t.style.display = 'none';
+      return;
+    }
+    let tooltip = document.getElementById('momTooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'momTooltip';
+      tooltip.style.cssText = 'position:fixed;background:#002C2A;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+      document.body.appendChild(tooltip);
+    }
+    let html = '<strong>' + monthLabels[idx] + '</strong>';
+    if (tyVals[idx] > 0) html += '<br>' + ty + ': <span style="color:#BA6DFB;font-weight:700">€' + Math.round(tyVals[idx]).toLocaleString() + '</span>';
+    if (lyVals[idx] > 0) html += '<br>' + ly + ': <span style="color:#BA6DFB;opacity:.5">€' + Math.round(lyVals[idx]).toLocaleString() + '</span>';
+    if (tyVals[idx] > 0 && lyVals[idx] > 0) {
+      const chg = Math.round((tyVals[idx] / lyVals[idx] - 1) * 100);
+      const clr = chg >= 0 ? '#10FBCF' : '#f87171';
+      html += '<br><span style="color:' + clr + '">' + (chg >= 0 ? '▲' : '▼') + ' ' + (chg >= 0 ? '+' : '') + chg + '%</span>';
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+  };
+  canvas.onmouseout = function() {
+    const t = document.getElementById('momTooltip');
+    if (t) t.style.display = 'none';
+  };
 
   // Legend
   document.getElementById('momLegend').innerHTML =
-    '<div class="ceo-legend-item"><div class="ceo-legend-line" style="background:#002C2A"></div>This Year</div>' +
-    '<div class="ceo-legend-item"><div class="ceo-legend-line" style="background:#FA538C;opacity:.5"></div>Last Year</div>';
+    '<div class="ceo-legend-item"><span style="display:inline-block;width:16px;height:2px;background:#9c27b0;vertical-align:middle;margin-right:4px"></span>' + ty + ' (This Year)</div>' +
+    '<div class="ceo-legend-item"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #9c27b0;opacity:.4;vertical-align:middle;margin-right:4px"></span>' + ly + ' (Last Year)</div>';
 }
 
-// ── Daily Cumulative Chart ──
+// ── Daily Cumulative Chart with Forecast ──
 function drawCumChart() {
   const canvas = document.getElementById('cumChart');
   const ctx = canvas.getContext('2d');
@@ -1581,7 +1629,7 @@ function drawCumChart() {
   canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
   const W = rect.width, H = rect.height;
-  const pad = { top: 20, right: 20, bottom: 40, left: 55 };
+  const pad = { top: 20, right: 40, bottom: 40, left: 55 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -1589,23 +1637,48 @@ function drawCumChart() {
   if (!cum || !cum.series) return;
 
   const series = cum.series;
-  // l8m and forecast removed per user request
   const lastDay = cum.last_day || 0;
   const thisMtd = cum.this_mtd;
-  const avgAtDay = cum.avg_at_day;
 
-  const maxDays = 31;
+  // Get current month's days count
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const maxDays = daysInMonth;
 
-  // Determine max value across all series, l8m, and forecast
+  const tm = series['This Month'];
+
+  // ── Linear regression forecast ──
+  // Use the "This Month" cumulative data up to lastDay to extrapolate to end of month
+  let forecastLine = null;
+  if (tm && lastDay >= 2) {
+    // Simple linear regression on cumulative daily values (day 1..lastDay)
+    const n = lastDay;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let i = 0; i < n; i++) {
+      const x = i + 1; // day number
+      const y = tm[i] || 0;
+      sumX += x; sumY += y; sumXY += x * y; sumXX += x * x;
+    }
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    // Build forecast from lastDay to end of month
+    forecastLine = [];
+    for (let d = lastDay; d <= maxDays; d++) {
+      forecastLine.push({ day: d - 1, val: Math.max(0, intercept + slope * d) });
+    }
+  }
+
+  // Determine max value across all series + forecast
   let maxVal = 0;
   Object.values(series).forEach(arr => {
     arr.forEach(v => { if (v != null && v > maxVal) maxVal = v; });
   });
-  // l8m/forecast removed from max calculation
+  if (forecastLine) {
+    forecastLine.forEach(p => { if (p.val > maxVal) maxVal = p.val; });
+  }
   maxVal *= 1.1;
   if (maxVal === 0) maxVal = 1;
 
-  // Nice Y-axis
   function niceStep(mx) {
     if (mx <= 0) return 1;
     const p = Math.pow(10, Math.floor(Math.log10(mx)));
@@ -1635,22 +1708,22 @@ function drawCumChart() {
     ctx.fillText(tick >= 1000 ? Math.round(tick / 1000) + 'K' : tick.toString(), pad.left - 8, y + 4);
   }
 
-  // X-axis (day numbers 1-31)
+  // X-axis (day numbers)
   ctx.fillStyle = '#8aaba9';
   ctx.font = '11px Arial';
   ctx.textAlign = 'center';
   for (let d = 0; d < maxDays; d++) {
+    if (maxDays > 28 && d % 2 !== 0 && d !== maxDays - 1 && d !== lastDay - 1) continue;
     ctx.fillText((d + 1).toString(), toX(d), H - pad.bottom + 16);
   }
 
-  // Define line order: grey months first, then special lines on top
+  // Grey previous month lines (exclude This Month and YOY)
   const greyKeys = [];
   const specialKeys = ['This Month', 'YOY LM-11'];
   Object.keys(series).forEach(k => {
     if (!specialKeys.includes(k)) greyKeys.push(k);
   });
 
-  // Draw grey previous month lines
   greyKeys.forEach(k => {
     const arr = series[k];
     ctx.strokeStyle = '#c8dbd9';
@@ -1660,7 +1733,7 @@ function drawCumChart() {
     ctx.beginPath();
     let started = false;
     arr.forEach((v, i) => {
-      if (v == null) return;
+      if (v == null || i >= maxDays) return;
       if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
       else ctx.lineTo(toX(i), toY(v));
     });
@@ -1668,7 +1741,7 @@ function drawCumChart() {
   });
   ctx.globalAlpha = 1;
 
-  // Draw YOY LM-11 (dashed pink/light)
+  // YOY LM-11 (dashed pink)
   const yoy = series['YOY LM-11'];
   if (yoy) {
     ctx.strokeStyle = '#d4a0c0';
@@ -1677,7 +1750,7 @@ function drawCumChart() {
     ctx.beginPath();
     let started = false;
     yoy.forEach((v, i) => {
-      if (v == null) return;
+      if (v == null || i >= maxDays) return;
       if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
       else ctx.lineTo(toX(i), toY(v));
     });
@@ -1685,79 +1758,96 @@ function drawCumChart() {
     ctx.setLineDash([]);
   }
 
-  // Draw This Month (solid magenta, thick)
-  const tm = series['This Month'];
+  // This Month line — only up to lastDay (solid purple)
   if (tm) {
     ctx.strokeStyle = '#9c27b0';
     ctx.lineWidth = 2.5;
     ctx.setLineDash([]);
     ctx.beginPath();
     let st = false;
-    tm.forEach((v, i) => {
-      if (v == null) return;
+    for (let i = 0; i < lastDay && i < maxDays; i++) {
+      const v = tm[i];
+      if (v == null) continue;
       if (!st) { ctx.moveTo(toX(i), toY(v)); st = true; }
       else ctx.lineTo(toX(i), toY(v));
-    });
+    }
     ctx.stroke();
   }
 
-  // Annotated dots: This MTD and Avg to date at lastDay
+  // MTD dot and label at lastDay
   if (lastDay > 0 && thisMtd != null) {
     const di = lastDay - 1;
-    const xPt = toX(di);
-
-    // This MTD dot (magenta)
     ctx.beginPath();
-    ctx.arc(xPt, toY(thisMtd), 5, 0, Math.PI * 2);
+    ctx.arc(toX(di), toY(thisMtd), 5, 0, Math.PI * 2);
     ctx.fillStyle = '#9c27b0';
     ctx.fill();
-    // Label
-    const mtdLabel = Math.round(thisMtd / 1000) + 'K';
+    const mtdLabel = '€' + Math.round(thisMtd / 1000) + 'K';
     ctx.fillStyle = '#9c27b0';
-    ctx.font = 'bold 13px Arial';
+    ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(mtdLabel, xPt, toY(thisMtd) - 10);
+    ctx.fillText(mtdLabel, toX(di), toY(thisMtd) - 10);
+  }
 
-    // Avg to date dot removed
+  // Forecast dashed black line from lastDay to end of month
+  if (forecastLine && forecastLine.length >= 2) {
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    forecastLine.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(toX(p.day), toY(p.val));
+      else ctx.lineTo(toX(p.day), toY(p.val));
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Forecast end-of-month dot + label
+    const lastPt = forecastLine[forecastLine.length - 1];
+    ctx.beginPath();
+    ctx.arc(toX(lastPt.day), toY(lastPt.val), 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#222';
+    ctx.fill();
+    const fcLabel = '€' + Math.round(lastPt.val / 1000) + 'K';
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(fcLabel, toX(lastPt.day) + 8, toY(lastPt.val) + 4);
   }
 
   // Subtitle
   document.getElementById('cumSubtitle').textContent = cum.subtitle || '';
 
-  // Legend - compact multi-row
+  // Legend
   const legendItems = [
-    ['LM', '#c8dbd9', 'line'], ['LM-1', '#c8dbd9', 'line'], ['LM-2', '#c8dbd9', 'line'],
-    ['LM-3', '#c8dbd9', 'line'], ['LM-4', '#c8dbd9', 'line'], ['LM-5', '#c8dbd9', 'line'],
-    ['LM-6', '#c8dbd9', 'line'], ['LM-7', '#c8dbd9', 'line'], ['LM-8', '#c8dbd9', 'line'],
-    ['LM-9', '#c8dbd9', 'line'], ['LM-10', '#c8dbd9', 'line'],
-    ['YOY LM-11', '#d4a0c0', 'dash'],
+    ['Prior months', '#c8dbd9', 'line'],
+    ['YOY', '#d4a0c0', 'dash'],
     ['This Month', '#9c27b0', 'line'],
     ['This MTD', '#9c27b0', 'dot-mark'],
+    ['Forecast', '#222', 'dash'],
   ];
   let legHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:#5e8885">';
   legendItems.forEach(([label, color, type]) => {
     let icon = '';
     if (type === 'line') icon = '<span style="display:inline-block;width:16px;height:2px;background:' + color + ';vertical-align:middle;margin-right:4px;opacity:' + (color === '#c8dbd9' ? '0.5' : '1') + '"></span>';
     else if (type === 'dash') icon = '<span style="display:inline-block;width:16px;height:0;border-top:2px dashed ' + color + ';vertical-align:middle;margin-right:4px"></span>';
-    else if (type === 'dot') icon = '<span style="display:inline-block;width:16px;height:0;border-top:2px dotted ' + color + ';vertical-align:middle;margin-right:4px"></span>';
     else if (type === 'dot-mark') icon = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';vertical-align:middle;margin-right:4px"></span>';
     legHtml += '<span>' + icon + label + '</span>';
   });
   legHtml += '</div>';
   document.getElementById('cumLegend').innerHTML = legHtml;
 
-  // Store data on canvas for hover
-  canvas._cum = { toX: toX, toY: toY, lastDay: lastDay, thisMtd: thisMtd, avgAtDay: avgAtDay, tm: tm, l8m: l8m, maxDays: maxDays, niceMax: niceMax, pad: pad, cW: cW, cH: cH };
+  // Store all series data for tooltip
+  const seriesMap = {};
+  Object.keys(series).forEach(k => { seriesMap[k] = series[k]; });
+  canvas._cum = { toX, toY, lastDay, thisMtd, tm, forecastLine, series: seriesMap, maxDays, niceMax, pad, cW, cH };
 
-  // Hover interaction
+  // Hover tooltip — shows all line values at the hovered day
   canvas.onmousemove = function(e) {
     const r = canvas.getBoundingClientRect();
     const mx = e.clientX - r.left;
-    const my = e.clientY - r.top;
     const c = canvas._cum;
     if (!c) return;
 
-    // Find which day index the mouse is over
     const dayF = (mx - c.pad.left) / (c.cW / (c.maxDays - 1));
     const day = Math.round(dayF);
     if (day < 0 || day >= c.maxDays || mx < c.pad.left || mx > c.pad.left + c.cW) {
@@ -1770,13 +1860,46 @@ function drawCumChart() {
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.id = 'cumTooltip';
-      tooltip.style.cssText = 'position:fixed;background:#002C2A;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,0.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6;max-width:220px';
       document.body.appendChild(tooltip);
     }
 
-    const tmVal = c.tm && c.tm[day] != null ? c.tm[day] : null;
-    let html = '<strong>Day ' + (day + 1) + '</strong>';
-    if (tmVal != null) html += '<br>This Month: <span style="color:#BA6DFB;font-weight:700">€' + Math.round(tmVal).toLocaleString() + '</span>';
+    let html = '<div style="font-weight:700;font-size:12px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:3px">Day ' + (day + 1) + '</div>';
+
+    // This Month
+    const tmVal = c.tm && day < c.tm.length ? c.tm[day] : null;
+    if (tmVal != null && day < c.lastDay) {
+      html += '<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#BA6DFB">This Month</span><span style="font-weight:600">€' + Math.round(tmVal).toLocaleString() + '</span></div>';
+    }
+
+    // Forecast at this day
+    if (c.forecastLine && day >= c.lastDay - 1) {
+      const fp = c.forecastLine.find(p => p.day === day);
+      if (fp) html += '<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#888">Forecast</span><span style="font-weight:600">€' + Math.round(fp.val).toLocaleString() + '</span></div>';
+    }
+
+    // Prior months — show only the ones that have data at this day
+    const priorEntries = [];
+    Object.keys(c.series).forEach(k => {
+      if (k === 'This Month') return;
+      const arr = c.series[k];
+      if (arr && day < arr.length && arr[day] != null && arr[day] > 0) {
+        priorEntries.push({ label: k, val: arr[day] });
+      }
+    });
+    if (priorEntries.length > 0) {
+      // Show top 3 by value to keep tooltip compact
+      priorEntries.sort((a, b) => b.val - a.val);
+      const shown = priorEntries.slice(0, 3);
+      shown.forEach(p => {
+        const clr = p.label === 'YOY LM-11' ? '#d4a0c0' : 'rgba(200,219,217,.8)';
+        html += '<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:' + clr + '">' + p.label + '</span><span style="font-weight:600;opacity:.7">€' + Math.round(p.val).toLocaleString() + '</span></div>';
+      });
+      if (priorEntries.length > 3) {
+        html += '<div style="opacity:.4;font-size:10px">+' + (priorEntries.length - 3) + ' more</div>';
+      }
+    }
+
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';
