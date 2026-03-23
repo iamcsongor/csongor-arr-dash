@@ -271,10 +271,21 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
 
     EXCLUDED_STATUSES_CEO = {'Not reconciled', 'Not to be Invoiced', '', 'None'}
     EXCLUDED_STATUSES_TESTING = {'Not to be Invoiced', 'Not reconciled', 'Data Loaded Back Data'}
+    EXCLUDED_STATUSES_YTD = {'Not to be Invoiced'}
 
     today = datetime.date.today()
     current_year = today.year
     current_month = today.month
+
+    # YTD testing revenue (status != "Not to be Invoiced", date_completed up to today's day-of-year)
+    ytd_testing_this_year = 0.0
+    ytd_testing_last_year = 0.0
+    # The cutoff date for last year is the same month/day but in the previous year
+    try:
+        ly_cutoff = datetime.date(current_year - 1, today.month, today.day)
+    except ValueError:
+        # Handle Feb 29 edge case
+        ly_cutoff = datetime.date(current_year - 1, today.month, 28)
 
     # CEO aggregation
     company_monthly_rev = defaultdict(float)
@@ -357,6 +368,14 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
                 acc_yearly_rev[acc_name][yr] += rev_f
                 acc_total_rev[acc_name] += rev_f
 
+        # YTD testing revenue (status != "Not to be Invoiced")
+        if status not in EXCLUDED_STATUSES_YTD:
+            sample_date = datetime.date(yr, mo, dy)
+            if yr == current_year and sample_date <= today:
+                ytd_testing_this_year += rev_f
+            elif yr == current_year - 1 and sample_date <= ly_cutoff:
+                ytd_testing_last_year += rev_f
+
     print(f"    {len(up_total_rev)} UPs with testing revenue")
     print(f"    {len(company_monthly_rev)} months of CEO data")
 
@@ -370,6 +389,8 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
         'acc_yearly_rev': acc_yearly_rev,
         'acc_total_rev': acc_total_rev,
         'up_yearly_rev_ceo': up_yearly_rev_ceo,
+        'ytd_testing_this_year': ytd_testing_this_year,
+        'ytd_testing_last_year': ytd_testing_last_year,
     }
 
 
@@ -473,9 +494,21 @@ def extract_ceo_dashboard(samples_data):
         'avg_at_day': None,
     }
 
+    # YTD testing revenue
+    ytd_testing_ty = round(samples_data.get('ytd_testing_this_year', 0), 2)
+    ytd_testing_ly = round(samples_data.get('ytd_testing_last_year', 0), 2)
+    ytd_testing_growth = (
+        round((ytd_testing_ty / ytd_testing_ly - 1) * 100, 1)
+        if ytd_testing_ly > 0 else None
+    )
+
     print(
         f"    LYTD: {round(lytd_total):,}, TYTD: {round(tytd_total):,}, "
         f"Growth: {ytd_growth}%"
+    )
+    print(
+        f"    Testing Revenue YTD: {round(ytd_testing_ty):,}, "
+        f"LYTD: {round(ytd_testing_ly):,}, Growth: {ytd_testing_growth}%"
     )
     print(f"    Active customers YTD: {len(active_customers_ytd)}")
 
@@ -488,6 +521,9 @@ def extract_ceo_dashboard(samples_data):
         'tytd': round(tytd_total, 2),
         'ytd_growth': ytd_growth,
         'active_customers_ytd': len(active_customers_ytd),
+        'ytd_testing_this_year': ytd_testing_ty,
+        'ytd_testing_last_year': ytd_testing_ly,
+        'ytd_testing_growth': ytd_testing_growth,
     }
 
 

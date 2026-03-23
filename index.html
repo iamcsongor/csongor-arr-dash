@@ -1412,11 +1412,21 @@ function renderCEODashboard() {
   const kpiRow = document.getElementById('ceoKpiRow');
   const growthCls = CEO.ytd_growth >= 0 ? 'positive' : 'negative';
   const growthArrow = CEO.ytd_growth >= 0 ? '▲' : '▼';
+  // Testing revenue YTD
+  const testTY = CEO.ytd_testing_this_year || 0;
+  const testLY = CEO.ytd_testing_last_year || 0;
+  const testGrowth = CEO.ytd_testing_growth;
+  const testGrowthCls = testGrowth != null && testGrowth >= 0 ? 'positive' : 'negative';
+  const testGrowthArrow = testGrowth != null ? (testGrowth >= 0 ? '▲' : '▼') : '';
+  const testGrowthStr = testGrowth != null ? ((testGrowth >= 0 ? '+' : '') + testGrowth + '%') : '—';
+
   kpiRow.innerHTML =
     '<div class="ceo-kpi"><div class="label">TYTD Revenue</div><div class="val">' + fmtEur(CEO.tytd) + '</div><div class="sub ' + growthCls + '">' + growthArrow + ' ' + Math.abs(CEO.ytd_growth) + '% YoY</div></div>' +
     '<div class="ceo-kpi"><div class="label">LYTD Revenue</div><div class="val">' + fmtEur(CEO.lytd) + '</div><div class="sub">Same period last year</div></div>' +
     '<div class="ceo-kpi"><div class="label">YoY Growth</div><div class="val ' + growthCls + '">' + (CEO.ytd_growth >= 0 ? '+' : '') + CEO.ytd_growth + '%</div><div class="sub">Year-to-date</div></div>' +
-    '<div class="ceo-kpi"><div class="label">Active Customers (YTD)</div><div class="val">' + CEO.active_customers_ytd + '</div><div class="sub">With testing revenue</div></div>';
+    '<div class="ceo-kpi"><div class="label">Active Customers (YTD)</div><div class="val">' + CEO.active_customers_ytd + '</div><div class="sub">With testing revenue</div></div>' +
+    '<div class="ceo-kpi" style="border-left:3px solid #10FBCF"><div class="label">Testing Revenue YTD</div><div class="val">' + fmtEur(testTY) + '</div><div class="sub ' + testGrowthCls + '">' + testGrowthArrow + ' ' + testGrowthStr + ' vs LYTD</div></div>' +
+    '<div class="ceo-kpi"><div class="label">Testing Revenue LYTD</div><div class="val">' + fmtEur(testLY) + '</div><div class="sub">Same period last year</div></div>';
 
   drawMoMChart();
   drawCumChart();
