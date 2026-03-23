@@ -602,10 +602,16 @@ def extract_up_explorer(accounts, id15_to_id18, acc_casesafe_to_up, all_ci, samp
         up_accounts = sorted(set(ci['account'] for ci in items if ci['account']))
         up_billing_statuses = sorted(set(ci['billing_status'] for ci in items if ci['billing_status']))
 
+        # Use Hierarchy Live ARR from the UP's own account record (top-level lookup)
+        up_acc = accounts.get(up_id, {})
+        h_b1 = up_acc.get('hierarchy_b1_arr', 0) or 0
+        h_b2 = up_acc.get('hierarchy_b2_arr', 0) or 0
+        h_total = up_acc.get('hierarchy_total_arr', 0) or 0
+
         up_data.append({
             'id': up_id,
             'name': up_name,
-            'b1_arr': round(b1, 2), 'b2_arr': round(b2, 2), 'total_arr': round(total, 2),
+            'b1_arr': round(h_b1, 2), 'b2_arr': round(h_b2, 2), 'total_arr': round(h_total, 2),
             'b1_items': up_b1_items.get(up_id, 0),
             'b2_items': up_b2_items.get(up_id, 0),
             'account_count': len(acc_ids),
