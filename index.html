@@ -957,67 +957,85 @@ function renderTestingRevenue() {
     const allVals = [];
     chartYears.forEach(yr => yearMonths[yr].forEach(d => allVals.push(d.val)));
     const maxVal = Math.max(...allVals, 1);
-    const chartW = 700, chartH = 220, padL = 60, padB = 30, padT = 10, padR = 10;
+    const nYears = chartYears.length;
+    const chartW = 740, chartH = 260, padL = 55, padB = 36, padT = 15, padR = 15;
     const plotW = chartW - padL - padR, plotH = chartH - padB - padT;
     const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const barColors = { [thisYear]: '#002C2A' };
-    const lineColors = ['#5CECC6','#BA6DFB','#FF6B6B'];
+    const yearColors = {};
+    const palette = ['#002C2A', '#10FBCF', '#5CECC6', '#BA6DFB', '#FF6B6B'];
+    chartYears.forEach((yr, i) => { yearColors[yr] = yr === thisYear ? '#002C2A' : palette[Math.min(i + 1, palette.length - 1)]; });
+
+    const groupW = plotW / 12;
+    const gap = 2;
+    const barW = Math.max((groupW - gap * (nYears + 1)) / nYears, 4);
 
     let svg = '<svg width="' + chartW + '" height="' + chartH + '" style="font-family:inherit">';
     // Y gridlines
     for (let i = 0; i <= 4; i++) {
       const yy = padT + plotH - (plotH * i / 4);
       const lbl = Math.round(maxVal * i / 4);
-      svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (chartW - padR) + '" y2="' + yy + '" stroke="#e0e0e0" stroke-width="1"/>';
-      svg += '<text x="' + (padL - 6) + '" y="' + (yy + 4) + '" text-anchor="end" fill="#888" font-size="10">' + (lbl >= 1000 ? Math.round(lbl/1000) + 'K' : lbl) + '</text>';
+      svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (chartW - padR) + '" y2="' + yy + '" stroke="#eef3f2" stroke-width="1"/>';
+      svg += '<text x="' + (padL - 6) + '" y="' + (yy + 4) + '" text-anchor="end" fill="#8aaba9" font-size="10">' + (lbl >= 1000 ? Math.round(lbl/1000) + 'K' : lbl) + '</text>';
     }
-    // X axis labels (months 1-12)
-    const barW = plotW / 12 * 0.6;
+    // X axis
+    svg += '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (chartW - padR) + '" y2="' + (padT + plotH) + '" stroke="#c8dbd9" stroke-width="1"/>';
     for (let mo = 1; mo <= 12; mo++) {
-      const cx = padL + (mo - 0.5) / 12 * plotW;
-      svg += '<text x="' + cx + '" y="' + (chartH - 5) + '" text-anchor="middle" fill="#888" font-size="10">' + moNames[mo-1] + '</text>';
+      const cx = padL + (mo - 0.5) * groupW;
+      svg += '<text x="' + cx + '" y="' + (chartH - 8) + '" text-anchor="middle" fill="#5a7a78" font-size="11" font-weight="500">' + moNames[mo-1] + '</text>';
     }
 
-    // Draw bars for current year, lines for previous years
-    let lineIdx = 0;
-    chartYears.forEach(yr => {
-      const data = yearMonths[yr];
-      if (yr === thisYear) {
-        // Bars
-        data.forEach(d => {
-          const bh = (d.val / maxVal) * plotH;
-          const bx = padL + (d.mo - 0.5) / 12 * plotW - barW / 2;
-          const by = padT + plotH - bh;
-          svg += '<rect x="' + bx + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="' + (barColors[yr] || '#002C2A') + '" rx="2"><title>' + moNames[d.mo-1] + ' ' + yr + ': €' + Math.round(d.val).toLocaleString() + '</title></rect>';
-        });
-      } else {
-        // Line
-        const color = lineColors[lineIdx % lineColors.length];
-        lineIdx++;
-        let pts = data.map(d => {
-          const x = padL + (d.mo - 0.5) / 12 * plotW;
-          const y = padT + plotH - (d.val / maxVal) * plotH;
-          return x + ',' + y;
-        }).join(' ');
-        svg += '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-dasharray="6,3"/>';
-        data.forEach(d => {
-          const x = padL + (d.mo - 0.5) / 12 * plotW;
-          const y = padT + plotH - (d.val / maxVal) * plotH;
-          svg += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + color + '"><title>' + moNames[d.mo-1] + ' ' + yr + ': €' + Math.round(d.val).toLocaleString() + '</title></circle>';
-        });
-      }
-    });
+    // Draw grouped bars for each month
+    for (let mo = 1; mo <= 12; mo++) {
+      const groupStart = padL + (mo - 1) * groupW + gap;
+      chartYears.forEach((yr, yi) => {
+        const data = yearMonths[yr] || [];
+        const d = data.find(x => x.mo === mo);
+        const val = d ? d.val : 0;
+        const bh = (val / maxVal) * plotH;
+        const bx = groupStart + yi * (barW + gap);
+        const by = padT + plotH - bh;
+        const isCurrent = yr === thisYear;
+
+        if (isCurrent) {
+          // Solid filled bar for current year
+          svg += '<rect x="' + bx + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="#002C2A" rx="2">' +
+            '<title>' + moNames[mo-1] + ' ' + yr + ': €' + Math.round(val).toLocaleString() + '</title></rect>';
+          // Value label rotated 90° inside bar
+          if (val > 0) {
+            const labelY = bh > 40 ? by + bh / 2 : by - 4;
+            const labelColor = bh > 40 ? '#5CECC6' : '#002C2A';
+            svg += '<text x="' + (bx + barW / 2) + '" y="' + labelY + '" text-anchor="middle" fill="' + labelColor + '" font-size="9" font-weight="600" transform="rotate(-90,' + (bx + barW / 2) + ',' + labelY + ')">' +
+              (val >= 1000 ? Math.round(val/1000) + 'K' : Math.round(val)) + '</text>';
+          }
+        } else {
+          // Dashed outline bar for previous years
+          const color = yearColors[yr];
+          const opacity = yr === thisYear - 1 ? '0.7' : '0.4';
+          if (val > 0) {
+            svg += '<rect x="' + bx + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-dasharray="4,2" opacity="' + opacity + '" rx="2">' +
+              '<title>' + moNames[mo-1] + ' ' + yr + ': €' + Math.round(val).toLocaleString() + '</title></rect>';
+            // Value label
+            if (bh > 30) {
+              svg += '<text x="' + (bx + barW / 2) + '" y="' + (by + bh / 2) + '" text-anchor="middle" fill="' + color + '" font-size="8" opacity="' + opacity + '" transform="rotate(-90,' + (bx + barW / 2) + ',' + (by + bh / 2) + ')">' +
+                (val >= 1000 ? Math.round(val/1000) + 'K' : Math.round(val)) + '</text>';
+            }
+          }
+        }
+      });
+    }
 
     svg += '</svg>';
 
     // Legend
-    let legend = '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#666">';
+    let legend = '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#5a7a78">';
     chartYears.forEach(yr => {
-      if (yr === thisYear) {
-        legend += '<span><span style="display:inline-block;width:12px;height:12px;background:#002C2A;border-radius:2px;vertical-align:middle;margin-right:4px"></span>' + yr + ' (bars)</span>';
+      const isCurrent = yr === thisYear;
+      if (isCurrent) {
+        legend += '<span style="font-weight:600;color:#002C2A"><span style="display:inline-block;width:12px;height:12px;background:#002C2A;border-radius:2px;vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
       } else {
-        const color = lineColors[(chartYears.filter(y => y < thisYear).indexOf(yr)) % lineColors.length];
-        legend += '<span><span style="display:inline-block;width:16px;border-top:2px dashed ' + color + ';vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
+        const color = yearColors[yr];
+        const opacity = yr === thisYear - 1 ? '0.7' : '0.4';
+        legend += '<span style="opacity:' + opacity + '"><span style="display:inline-block;width:12px;height:12px;border:1.5px dashed ' + color + ';border-radius:2px;vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
       }
     });
     legend += '</div>';
