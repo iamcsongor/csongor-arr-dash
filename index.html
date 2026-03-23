@@ -466,8 +466,11 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
         <div class="ceo-legend" id="caChartLegend"></div>
       </div>
       <div class="ca-chart-card">
-        <h3>Cohort Breakdown</h3>
-        <div class="subtitle">Revenue distribution by growth cohort</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <h3 style="margin:0">Breakdown</h3>
+          <div id="cohortToggle" style="display:flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid #c8dbd9;font-size:11px;font-weight:600"></div>
+        </div>
+        <div class="subtitle" id="cohortSubtitle">Revenue distribution by CSM</div>
         <div class="ca-cohort-grid" id="caCohortGrid"></div>
       </div>
     </div>
@@ -2501,42 +2504,74 @@ function drawCAMonthChart(rows) {
   };
 }
 
+let cohortBreakdownMode = 'csm';
+
+function setCohortBreakdownMode(mode) {
+  cohortBreakdownMode = mode;
+  document.querySelectorAll('#cohortToggle .ct-btn').forEach(b => {
+    b.style.background = b.dataset.val === mode ? '#002C2A' : '#fff';
+    b.style.color = b.dataset.val === mode ? '#fff' : '#5e8885';
+  });
+  const sub = document.getElementById('cohortSubtitle');
+  if (sub) sub.textContent = 'Revenue distribution by ' + (mode === 'csm' ? 'CSM' : 'Account Cohort');
+  const rows = getFilteredBCL();
+  renderCACohorts(rows);
+}
+
 function renderCACohorts(rows) {
   const grid = document.getElementById('caCohortGrid');
-  const cohorts = {};
+  // Render toggle buttons
+  const toggle = document.getElementById('cohortToggle');
+  if (toggle && !toggle.dataset.init) {
+    toggle.dataset.init = '1';
+    toggle.innerHTML = ['csm', 'account_cohort'].map(m => {
+      const label = m === 'csm' ? 'CSM' : 'Account Cohort';
+      const active = m === cohortBreakdownMode;
+      return '<button class="ct-btn" data-val="' + m + '" onclick="setCohortBreakdownMode(\'' + m + '\')" style="padding:4px 12px;border:none;cursor:pointer;background:' + (active ? '#002C2A' : '#fff') + ';color:' + (active ? '#fff' : '#5e8885') + ';font-size:11px;font-weight:600;font-family:inherit">' + label + '</button>';
+    }).join('');
+  }
+
+  const groups = {};
   rows.forEach(r => {
-    const c = r.growth_cohort || 'Unknown';
-    if (!cohorts[c]) cohorts[c] = { count: 0, rev: 0 };
-    cohorts[c].count++;
-    cohorts[c].rev += (r.tytd || 0);
+    const key = cohortBreakdownMode === 'csm'
+      ? (r.csm || 'Unassigned')
+      : (r.account_cohort || 'Unknown');
+    if (!groups[key]) groups[key] = { count: 0, rev: 0 };
+    groups[key].count++;
+    groups[key].rev += (r.tytd || 0);
   });
-  const order = ['1. Ripping', '2. Growth 25%+', '3. Growth 5%+', '4. Flat', '5. Slowing <-5%', '6. Crashing <-25%'];
-  const colors = { '1. Ripping': '#002C2A', '2. Growth 25%+': '#0D9B7A', '3. Growth 5%+': '#4FDBFB', '4. Flat': '#c8dbd9', '5. Slowing <-5%': '#FA538C', '6. Crashing <-25%': '#460013' };
-  const textColors = { '1. Ripping': '#fff', '2. Growth 25%+': '#002C2A', '3. Growth 5%+': '#001940', '4. Flat': '#3d5c5a', '5. Slowing <-5%': '#fff', '6. Crashing <-25%': '#fff' };
-  const totalRev = Object.values(cohorts).reduce((s, c) => s + c.rev, 0) || 1;
+
+  const totalRev = Object.values(groups).reduce((s, c) => s + c.rev, 0) || 1;
   const totalCount = rows.length || 1;
+
+  // Sort by revenue descending
+  const sorted = Object.keys(groups).sort((a, b) => groups[b].rev - groups[a].rev);
+
+  // Generate colors dynamically
+  const palette = ['#002C2A', '#0D9B7A', '#5CECC6', '#BA6DFB', '#FA538C', '#FF9A3C', '#4FDBFB', '#7B61FF', '#c8dbd9', '#460013'];
+  const textPalette = ['#fff', '#002C2A', '#001940', '#fff', '#fff', '#002C2A', '#001940', '#fff', '#3d5c5a', '#fff'];
 
   // Stacked horizontal bar
   let barHtml = '<div style="display:flex;height:32px;border-radius:8px;overflow:hidden;margin-bottom:14px">';
-  order.forEach(name => {
-    const d = cohorts[name];
-    if (!d || d.count === 0) return;
+  sorted.forEach((name, i) => {
+    const d = groups[name];
     const pct = (d.count / totalCount * 100);
     if (pct < 1) return;
-    barHtml += '<div style="width:' + pct.toFixed(1) + '%;background:' + (colors[name]||'#ccc') + ';display:flex;align-items:center;justify-content:center;color:' + (textColors[name]||'#fff') + ';font-size:12px;font-weight:700;min-width:20px" title="' + name + ': ' + d.count + ' (' + pct.toFixed(0) + '%)">' + (pct >= 5 ? pct.toFixed(0) + '%' : '') + '</div>';
+    const bg = palette[i % palette.length];
+    const fg = textPalette[i % textPalette.length];
+    barHtml += '<div style="width:' + pct.toFixed(1) + '%;background:' + bg + ';display:flex;align-items:center;justify-content:center;color:' + fg + ';font-size:12px;font-weight:700;min-width:20px" title="' + name + ': ' + d.count + ' (' + pct.toFixed(0) + '%)">' + (pct >= 5 ? pct.toFixed(0) + '%' : '') + '</div>';
   });
   barHtml += '</div>';
 
   // Summary rows
   let tableHtml = '<div style="display:grid;gap:6px">';
-  order.forEach(name => {
-    const d = cohorts[name] || { count: 0, rev: 0 };
-    const pctC = (d.count / totalCount * 100).toFixed(0);
+  sorted.forEach((name, i) => {
+    const d = groups[name];
     const pctR = (d.rev / totalRev * 100).toFixed(0);
-    const short = name.replace(/^\d+\.\s*/, '');
+    const bg = palette[i % palette.length];
     tableHtml += '<div style="display:grid;grid-template-columns:12px 1fr 50px 70px 50px;gap:8px;align-items:center;font-size:12px">';
-    tableHtml += '<div style="width:10px;height:10px;border-radius:2px;background:' + (colors[name]||'#ccc') + '"></div>';
-    tableHtml += '<div style="font-weight:600;color:#002C2A">' + short + '</div>';
+    tableHtml += '<div style="width:10px;height:10px;border-radius:2px;background:' + bg + '"></div>';
+    tableHtml += '<div style="font-weight:600;color:#002C2A">' + name + '</div>';
     tableHtml += '<div style="text-align:right;font-weight:700">' + d.count + '</div>';
     tableHtml += '<div style="text-align:right;color:#5e8885">€' + fmtNum(d.rev) + '</div>';
     tableHtml += '<div style="text-align:right;color:#5e8885;font-size:13px">' + pctR + '%</div>';
