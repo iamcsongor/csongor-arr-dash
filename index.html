@@ -45,12 +45,12 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1.5px solid #c8dbd9; background: white; transition: all 0.2s; font-family: inherit; }
 .chip:hover { border-color: #5CECC6; background: #edfcf8; }
-.chip.active { background: #002C2A; color: #10FBCF; border-color: #002C2A; }
+.chip.active { background: #002C2A; color: #0D9B7A; border-color: #002C2A; }
 
 /* KPI Cards — Cambri tone-on-tone */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
 .kpi { padding: 20px; border-radius: 14px; position: relative; overflow: hidden; }
-.kpi-b1 { background: #002C2A; color: #10FBCF; }
+.kpi-b1 { background: #002C2A; color: #0D9B7A; }
 .kpi-b2 { background: #001940; color: #4FDBFB; }
 .kpi-total { background: white; border: 2px solid #c8dbd9; }
 .kpi-stat { background: white; border: 2px solid #c8dbd9; }
@@ -67,7 +67,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 /* Split bar */
 .split-bar-container { margin-bottom: 24px; }
 .split-bar { height: 10px; border-radius: 5px; display: flex; overflow: hidden; background: #c8dbd9; }
-.split-b1 { background: #10FBCF; transition: width 0.5s; }
+.split-b1 { background: #0D9B7A; transition: width 0.5s; }
 .split-b2 { background: #4FDBFB; transition: width 0.5s; }
 .split-labels { display: flex; justify-content: space-between; font-size: 12px; color: #5a7a78; margin-top: 4px; }
 
@@ -192,8 +192,8 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; }
 .fpill { padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1.5px solid #c8dbd9; background: white; transition: all 0.15s; white-space: nowrap; font-family: inherit; }
 .fpill:hover { border-color: #5CECC6; }
-.fpill.active { background: #002C2A; color: #10FBCF; border-color: #002C2A; }
-.fpill.active-b1 { background: #002C2A; color: #10FBCF; border-color: #002C2A; }
+.fpill.active { background: #002C2A; color: #0D9B7A; border-color: #002C2A; }
+.fpill.active-b1 { background: #002C2A; color: #0D9B7A; border-color: #002C2A; }
 .fpill.active-b2 { background: #001940; color: #4FDBFB; border-color: #001940; }
 .fpill.active-exc { background: #460013; color: #FA538C; border-color: #460013; }
 .filter-reset { padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; background: #fce4e8; color: #460013; font-weight: 600; font-family: inherit; }
@@ -213,7 +213,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .credit-bar-wrap { display: flex; align-items: center; gap: 6px; min-width: 130px; }
 .credit-bar { flex: 1; height: 16px; background: #eef3f2; border-radius: 8px; overflow: hidden; position: relative; min-width: 60px; }
 .credit-bar-fill { height: 100%; border-radius: 8px; transition: width .3s; }
-.credit-bar-fill.cb-high { background: linear-gradient(90deg, #10FBCF, #5CECC6); }
+.credit-bar-fill.cb-high { background: linear-gradient(90deg, #0D9B7A, #5CECC6); }
 .credit-bar-fill.cb-mid { background: linear-gradient(90deg, #4FDBFB, #BA6DFB); }
 .credit-bar-fill.cb-low { background: linear-gradient(90deg, #FA538C, #ff6b8a); }
 .credit-bar-fill.cb-zero { background: #cbd5e1; }
@@ -285,7 +285,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .ca-ms { position: relative; min-width: 160px; }
 .ca-ms-trigger { padding: 7px 10px; border: 1.5px solid #c8dbd9; border-radius: 8px; font-size: 13px; background: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-height: 34px; font-family: inherit; }
 .ca-ms-trigger:hover { border-color: #5CECC6; }
-.ca-ms-trigger .ca-ms-pill { display: inline-flex; align-items: center; gap: 3px; background: #002C2A; color: #10FBCF; padding: 1px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.ca-ms-trigger .ca-ms-pill { display: inline-flex; align-items: center; gap: 3px; background: #002C2A; color: #0D9B7A; padding: 1px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
 .ca-ms-trigger .ca-ms-pill .x { cursor: pointer; margin-left: 2px; opacity: .7; }
 .ca-ms-trigger .ca-ms-pill .x:hover { opacity: 1; }
 .ca-ms-trigger .ca-ms-ph { color: #8aaba9; font-size: 12px; }
@@ -296,7 +296,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .ca-ms-dd .ca-ms-opt:hover { background: #f0faf8; }
 .ca-ms-dd .ca-ms-opt.sel { background: #e6f3f2; font-weight: 600; }
 .ca-ms-dd .ca-ms-opt .ca-ms-chk { width: 14px; height: 14px; border: 1.5px solid #c8dbd9; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
-.ca-ms-dd .ca-ms-opt.sel .ca-ms-chk { background: #002C2A; border-color: #002C2A; color: #10FBCF; }
+.ca-ms-dd .ca-ms-opt.sel .ca-ms-chk { background: #002C2A; border-color: #002C2A; color: #0D9B7A; }
 
 /* Summary strip */
 .ca-summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -344,7 +344,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .ca-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .ca-table .ca-up { font-weight: 700; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .ca-table .ca-up a { color: #002C2A; text-decoration: none; }
-.ca-table .ca-up a:hover { color: #10FBCF; text-decoration: underline; }
+.ca-table .ca-up a:hover { color: #0D9B7A; text-decoration: underline; }
 .ca-table .ca-dim { color: #8aaba9; font-size: 11px; }
 /* Sticky first column (Customer) */
 .ca-table td:first-child { position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 2px 0 4px rgba(0,44,42,.04); }
@@ -355,7 +355,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 
 /* Inline bar */
 .ca-bar { display: inline-block; height: 10px; border-radius: 4px; min-width: 2px; vertical-align: middle; }
-.ca-bar.green { background: linear-gradient(90deg, #10FBCF, #5CECC6); }
+.ca-bar.green { background: linear-gradient(90deg, #0D9B7A, #5CECC6); }
 .ca-bar.purple { background: linear-gradient(90deg, #BA6DFB, #c88dfd); }
 .ca-bar.red { background: linear-gradient(90deg, #FA538C, #ff6b8a); }
 .ca-bar.blue { background: linear-gradient(90deg, #4FDBFB, #80e5fc); }
@@ -399,10 +399,10 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
       <span id="metaText">Loading data...</span>
       <a href="https://github.com/iamcsongor/csongor-arr-dash/actions/workflows/refresh.yml" target="_blank" rel="noopener"
          style="font-size:11px;color:#8aaba9;background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s"
-         onmouseover="this.style.color='#10FBCF';this.style.borderColor='#10FBCF'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
+         onmouseover="this.style.color='#0D9B7A';this.style.borderColor='#0D9B7A'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
          title="Open GitHub Actions to trigger a data refresh">↻ Refresh Data</a>
       <span onclick="location.reload()" style="font-size:11px;color:#8aaba9;background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);transition:all 0.2s"
-         onmouseover="this.style.color='#10FBCF';this.style.borderColor='#10FBCF'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
+         onmouseover="this.style.color='#0D9B7A';this.style.borderColor='#0D9B7A'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
          title="Reload page to show latest data">↺ Reload</span>
     </p>
   </div>
@@ -751,7 +751,7 @@ function eoqDelta(current, prev) {
   const diff = current - prev;
   const pctChg = prev !== 0 ? Math.round((diff / prev) * 100) : 0;
   const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
-  const color = diff > 0 ? '#10FBCF' : diff < 0 ? '#f87171' : '#8aaba9';
+  const color = diff > 0 ? '#0D9B7A' : diff < 0 ? '#f87171' : '#8aaba9';
   return '<div style="margin-top:4px;font-size:10px;color:#6b8a88;line-height:1.3">' +
     '<span style="opacity:0.6">EoQ4 \'25: ' + fmtEur(prev) + '</span> ' +
     '<span style="color:' + color + ';font-weight:600">' + arrow + ' ' + (pctChg > 0 ? '+' : '') + pctChg + '%</span></div>';
@@ -972,7 +972,7 @@ function renderTestingRevenue() {
     const plotW = chartW - padL - padR, plotH = chartH - padB - padT;
     const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const yearColors = {};
-    const palette = ['#002C2A', '#10FBCF', '#5CECC6', '#BA6DFB', '#FF6B6B'];
+    const palette = ['#002C2A', '#0D9B7A', '#5CECC6', '#BA6DFB', '#FF6B6B'];
     chartYears.forEach((yr, i) => { yearColors[yr] = yr === thisYear ? '#002C2A' : palette[Math.min(i + 1, palette.length - 1)]; });
 
     const groupW = plotW / 12;
@@ -1127,7 +1127,7 @@ function renderFilters() {
       <div class="filter-group"><label>Active</label>
         <div class="filter-pills" id="activePills">
           <span class="fpill active" data-val="all" onclick="setActive('all')">All</span>
-          <span class="fpill" data-val="yes" onclick="setActive('yes')"><span style="color:#10FBCF">●</span> Yes</span>
+          <span class="fpill" data-val="yes" onclick="setActive('yes')"><span style="color:#0D9B7A">●</span> Yes</span>
           <span class="fpill" data-val="no" onclick="setActive('no')"><span style="color:#cbd5e1">○</span> No</span>
         </div>
       </div>
@@ -1351,7 +1351,7 @@ const CI_COLS = [
       '<span class="credit-pct ' + cls + '">' + pct + '%</span></div>';
   } },
   { key: 'billing_status', label: 'Billing Status', render: (v, ci) => '<span class="' + bsClass(v) + '">' + v + '</span>' },
-  { key: 'active', label: 'Active', render: (v, ci) => v ? '<span style="color:#10FBCF;font-size:16px" title="Active">●</span>' : '<span style="color:#cbd5e1;font-size:16px" title="Inactive">○</span>', cls: 'center' },
+  { key: 'active', label: 'Active', render: (v, ci) => v ? '<span style="color:#0D9B7A;font-size:16px" title="Active">●</span>' : '<span style="color:#cbd5e1;font-size:16px" title="Inactive">○</span>', cls: 'center' },
   { key: 'start_date', label: 'Start' },
   { key: 'end_date', label: 'End' },
 ];
@@ -1517,7 +1517,7 @@ function drawGroupChart() {
 
   // Left Y-axis labels (revenue)
   ctx.fillStyle = '#8aaba9';
-  ctx.font = '10px Arial';
+  ctx.font = '12px Arial';
   ctx.textAlign = 'right';
   for (let i = 0; i <= gridSteps; i++) {
     const y = pad.top + (chartH / gridSteps) * i;
@@ -1528,7 +1528,7 @@ function drawGroupChart() {
   // Right Y-axis labels (growth %)
   ctx.textAlign = 'left';
   ctx.fillStyle = '#9c27b0';
-  ctx.font = '10px Arial';
+  ctx.font = '12px Arial';
   const growthTicks = [-Math.round(growthRange), -Math.round(growthRange / 2), 0, Math.round(growthRange / 2), Math.round(growthRange)];
   growthTicks.forEach(g => {
     const y = toYLine(g);
@@ -1568,7 +1568,7 @@ function drawGroupChart() {
     ctx.translate(cx, pad.top + chartH + 8);
     ctx.rotate(-Math.PI / 4);
     ctx.fillStyle = '#5e8885';
-    ctx.font = '10px Arial';
+    ctx.font = '12px Arial';
     ctx.textAlign = 'right';
     const lbl = e.label.length > 18 ? e.label.substring(0, 16) + '…' : e.label;
     ctx.fillText(lbl, 0, 0);
@@ -1576,7 +1576,7 @@ function drawGroupChart() {
   });
 
   // Growth line (secondary axis)
-  ctx.strokeStyle = '#10FBCF';
+  ctx.strokeStyle = '#0D9B7A';
   ctx.lineWidth = 2.5;
   ctx.setLineDash([]);
   ctx.beginPath();
@@ -1594,7 +1594,7 @@ function drawGroupChart() {
     const y = toYLine(e.growth);
     ctx.beginPath();
     ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#10FBCF';
+    ctx.fillStyle = '#0D9B7A';
     ctx.fill();
     ctx.strokeStyle = '#002C2A';
     ctx.lineWidth = 1;
@@ -1602,8 +1602,8 @@ function drawGroupChart() {
 
     // Growth label (only if not too crowded)
     if (n <= 10 || i % 2 === 0) {
-      ctx.fillStyle = e.growth >= 0 ? '#10FBCF' : '#f87171';
-      ctx.font = 'bold 9px Arial';
+      ctx.fillStyle = e.growth >= 0 ? '#0D9B7A' : '#f87171';
+      ctx.font = 'bold 11px Arial';
       ctx.textAlign = 'center';
       ctx.fillText((e.growth > 0 ? '+' : '') + e.growth + '%', x, y - 8);
     }
@@ -1626,11 +1626,11 @@ function drawGroupChart() {
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.id = 'groupTooltip';
-      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,0.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,0.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6';
       document.body.appendChild(tooltip);
     }
     const e = entries[idx];
-    const gClr = e.growth >= 0 ? '#10FBCF' : '#f87171';
+    const gClr = e.growth >= 0 ? '#0D9B7A' : '#f87171';
     tooltip.innerHTML =
       '<div style="font-weight:700;font-size:12px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:3px">' + e.label + '</div>' +
       '<div style="display:flex;justify-content:space-between;gap:16px"><span style="opacity:.6">LYTD</span><span>€' + Math.round(e.lytd).toLocaleString() + '</span></div>' +
@@ -1647,10 +1647,10 @@ function drawGroupChart() {
 
   // Legend
   document.getElementById('groupLegend').innerHTML =
-    '<div style="display:flex;gap:16px;font-size:11px;color:#5e8885;align-items:center">' +
+    '<div style="display:flex;gap:16px;font-size:13px;color:#5e8885;align-items:center">' +
     '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.2);border:1px solid #9c27b0;vertical-align:middle;margin-right:4px"></span>LYTD</span>' +
     '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.65);border:1px solid #9c27b0;vertical-align:middle;margin-right:4px"></span>TYTD</span>' +
-    '<span><span style="display:inline-block;width:16px;height:2px;background:#10FBCF;vertical-align:middle;margin-right:4px"></span>Growth %</span>' +
+    '<span><span style="display:inline-block;width:16px;height:2px;background:#0D9B7A;vertical-align:middle;margin-right:4px"></span>Growth %</span>' +
     '</div>';
 }
 
@@ -1705,14 +1705,14 @@ function drawMoMChart() {
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
     const val = maxVal - (maxVal / gridSteps) * i;
     ctx.fillStyle = '#8aaba9';
-    ctx.font = '10px Arial';
+    ctx.font = '12px Arial';
     ctx.textAlign = 'right';
     ctx.fillText('€' + Math.round(val / 1000) + 'k', pad.left - 8, y + 3);
   }
 
   // X-axis
   ctx.fillStyle = '#8aaba9';
-  ctx.font = '10px Arial';
+  ctx.font = '12px Arial';
   ctx.textAlign = 'center';
   monthLabels.forEach((label, i) => {
     ctx.fillText(label, toX(i), H - pad.bottom + 16);
@@ -1826,7 +1826,7 @@ function drawMoMChart() {
     if (lyVals[idx] > 0) html += '<br>' + ly + ': <span style="color:#BA6DFB;opacity:.5">€' + Math.round(lyVals[idx]).toLocaleString() + '</span>';
     if (tyVals[idx] > 0 && lyVals[idx] > 0) {
       const chg = Math.round((tyVals[idx] / lyVals[idx] - 1) * 100);
-      const clr = chg >= 0 ? '#10FBCF' : '#f87171';
+      const clr = chg >= 0 ? '#0D9B7A' : '#f87171';
       html += '<br><span style="color:' + clr + '">' + (chg >= 0 ? '▲' : '▼') + ' ' + (chg >= 0 ? '+' : '') + chg + '%</span>';
     }
     tooltip.innerHTML = html;
@@ -1926,7 +1926,7 @@ function drawCumChart() {
   ctx.strokeStyle = '#eef3f2';
   ctx.lineWidth = 1;
   ctx.fillStyle = '#8aaba9';
-  ctx.font = '11px Arial';
+  ctx.font = '13px Arial';
   ctx.textAlign = 'right';
   for (let tick = 0; tick <= niceMax; tick += step) {
     const y = toY(tick);
@@ -1936,7 +1936,7 @@ function drawCumChart() {
 
   // X-axis (day numbers)
   ctx.fillStyle = '#8aaba9';
-  ctx.font = '11px Arial';
+  ctx.font = '13px Arial';
   ctx.textAlign = 'center';
   for (let d = 0; d < maxDays; d++) {
     if (maxDays > 28 && d % 2 !== 0 && d !== maxDays - 1 && d !== lastDay - 1) continue;
@@ -2051,7 +2051,7 @@ function drawCumChart() {
     ['This MTD', '#9c27b0', 'dot-mark'],
     ['Forecast', '#222', 'dash'],
   ];
-  let legHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:#5e8885">';
+  let legHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:#5e8885">';
   legendItems.forEach(([label, color, type]) => {
     let icon = '';
     if (type === 'line') icon = '<span style="display:inline-block;width:16px;height:2px;background:' + color + ';vertical-align:middle;margin-right:4px;opacity:' + (color === '#c8dbd9' ? '0.5' : '1') + '"></span>';
@@ -2086,7 +2086,7 @@ function drawCumChart() {
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.id = 'cumTooltip';
-      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,0.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6;max-width:220px';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,0.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6;max-width:220px';
       document.body.appendChild(tooltip);
     }
 
@@ -2122,7 +2122,7 @@ function drawCumChart() {
         html += '<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:' + clr + '">' + p.label + '</span><span style="font-weight:600;opacity:.7">€' + Math.round(p.val).toLocaleString() + '</span></div>';
       });
       if (priorEntries.length > 3) {
-        html += '<div style="opacity:.4;font-size:10px">+' + (priorEntries.length - 3) + ' more</div>';
+        html += '<div style="opacity:.4;font-size:12px">+' + (priorEntries.length - 3) + ' more</div>';
       }
     }
 
@@ -2344,7 +2344,7 @@ function drawCAMonthChart(rows) {
   ctx.strokeStyle = '#e8efed';
   ctx.lineWidth = 1;
   ctx.fillStyle = '#5e8885';
-  ctx.font = '11px Arial';
+  ctx.font = '13px Arial';
   ctx.textAlign = 'right';
   for (let tick = 0; tick <= niceMax; tick += step) {
     const y = pad.top + cH - (tick / niceMax) * cH;
@@ -2387,7 +2387,7 @@ function drawCAMonthChart(rows) {
 
   // X labels
   ctx.fillStyle = '#5e8885';
-  ctx.font = '11px Arial';
+  ctx.font = '13px Arial';
   ctx.textAlign = 'center';
   tyHeaders.forEach((h, i) => {
     const x = pad.left + gap + i * (barW + gap) + barW / 2;
@@ -2451,7 +2451,7 @@ function renderCACohorts(rows) {
     cohorts[c].rev += (r.tytd || 0);
   });
   const order = ['1. Ripping', '2. Growth 25%+', '3. Growth 5%+', '4. Flat', '5. Slowing <-5%', '6. Crashing <-25%'];
-  const colors = { '1. Ripping': '#002C2A', '2. Growth 25%+': '#10FBCF', '3. Growth 5%+': '#4FDBFB', '4. Flat': '#c8dbd9', '5. Slowing <-5%': '#FA538C', '6. Crashing <-25%': '#460013' };
+  const colors = { '1. Ripping': '#002C2A', '2. Growth 25%+': '#0D9B7A', '3. Growth 5%+': '#4FDBFB', '4. Flat': '#c8dbd9', '5. Slowing <-5%': '#FA538C', '6. Crashing <-25%': '#460013' };
   const textColors = { '1. Ripping': '#fff', '2. Growth 25%+': '#002C2A', '3. Growth 5%+': '#001940', '4. Flat': '#3d5c5a', '5. Slowing <-5%': '#fff', '6. Crashing <-25%': '#fff' };
   const totalRev = Object.values(cohorts).reduce((s, c) => s + c.rev, 0) || 1;
   const totalCount = rows.length || 1;
@@ -2463,7 +2463,7 @@ function renderCACohorts(rows) {
     if (!d || d.count === 0) return;
     const pct = (d.count / totalCount * 100);
     if (pct < 1) return;
-    barHtml += '<div style="width:' + pct.toFixed(1) + '%;background:' + (colors[name]||'#ccc') + ';display:flex;align-items:center;justify-content:center;color:' + (textColors[name]||'#fff') + ';font-size:10px;font-weight:700;min-width:20px" title="' + name + ': ' + d.count + ' (' + pct.toFixed(0) + '%)">' + (pct >= 5 ? pct.toFixed(0) + '%' : '') + '</div>';
+    barHtml += '<div style="width:' + pct.toFixed(1) + '%;background:' + (colors[name]||'#ccc') + ';display:flex;align-items:center;justify-content:center;color:' + (textColors[name]||'#fff') + ';font-size:12px;font-weight:700;min-width:20px" title="' + name + ': ' + d.count + ' (' + pct.toFixed(0) + '%)">' + (pct >= 5 ? pct.toFixed(0) + '%' : '') + '</div>';
   });
   barHtml += '</div>';
 
@@ -2479,7 +2479,7 @@ function renderCACohorts(rows) {
     tableHtml += '<div style="font-weight:600;color:#002C2A">' + short + '</div>';
     tableHtml += '<div style="text-align:right;font-weight:700">' + d.count + '</div>';
     tableHtml += '<div style="text-align:right;color:#5e8885">€' + fmtNum(d.rev) + '</div>';
-    tableHtml += '<div style="text-align:right;color:#5e8885;font-size:11px">' + pctR + '%</div>';
+    tableHtml += '<div style="text-align:right;color:#5e8885;font-size:13px">' + pctR + '%</div>';
     tableHtml += '</div>';
   });
   tableHtml += '</div>';
@@ -2625,7 +2625,7 @@ function renderCATable(rows) {
       } else if (c.key === 'growth_cohort' && v) {
         const gcColors = { '1. Ripping': '#002C2A', '2. Growth 25%+': '#006b5e', '3. Growth 5%+': '#1a8fa0', '4. Flat': '#3d5c5a', '5. Slowing <-5%': '#c2185b', '6. Crashing <-25%': '#460013' };
         const gcBg = { '1. Ripping': '#d4f7ed', '2. Growth 25%+': '#e0f7f4', '3. Growth 5%+': '#d9f0fd', '4. Flat': '#e8efed', '5. Slowing <-5%': '#fce4e8', '6. Crashing <-25%': '#fbd0da' };
-        content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:' + (gcColors[v]||'#5e8885') + ';background:' + (gcBg[v]||'#e8efed') + '">' + v + '</span>';
+        content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;color:' + (gcColors[v]||'#5e8885') + ';background:' + (gcBg[v]||'#e8efed') + '">' + v + '</span>';
       } else {
         content = v != null ? v : '—';
         if (c.key === 'up') {
@@ -2636,20 +2636,20 @@ function renderCATable(rows) {
         if (c.key === 'cls' && v) {
           const clsColors = { 'Enterprise': '#001940', 'Majors': '#230040', 'Mid-Market': '#002C2A' };
           const clsBg = { 'Enterprise': '#e8eef8', 'Majors': '#f0e8f6', 'Mid-Market': '#e6f3f2' };
-          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;color:' + (clsColors[v]||'#5e8885') + ';background:' + (clsBg[v]||'#f0f6f5') + '">' + v + '</span>';
+          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;color:' + (clsColors[v]||'#5e8885') + ';background:' + (clsBg[v]||'#f0f6f5') + '">' + v + '</span>';
         }
         if (c.key === 'industry' && v && v !== '0') {
-          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;color:#002C2A;background:#e0f7f4">' + v + '</span>';
+          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;color:#002C2A;background:#e0f7f4">' + v + '</span>';
         }
         if (c.key === 'tenure' && v) {
           const isNew = v.includes('New');
-          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;color:' + (isNew ? '#230040' : '#002C2A') + ';background:' + (isNew ? '#f3e8fb' : '#e8efed') + '">' + v + '</span>';
+          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;color:' + (isNew ? '#230040' : '#002C2A') + ';background:' + (isNew ? '#f3e8fb' : '#e8efed') + '">' + v + '</span>';
         }
         if (c.key === 'status' && v) {
           const sColors = { 'Active': '#008a73', 'Churned': '#a0001e', 'Inactive': '#5e8885' };
           const sBg = { 'Active': '#d4f7ed', 'Churned': '#fce4e8', 'Inactive': '#e8efed' };
           const sv = v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
-          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;color:' + (sColors[sv]||'#5e8885') + ';background:' + (sBg[sv]||'#e8efed') + '">' + v + '</span>';
+          content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;color:' + (sColors[sv]||'#5e8885') + ';background:' + (sBg[sv]||'#e8efed') + '">' + v + '</span>';
         }
       }
       body += '<td class="' + cls + '">' + content + '</td>';

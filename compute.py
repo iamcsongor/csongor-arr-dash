@@ -104,6 +104,7 @@ def read_accounts(wb):
       Col 39 (AN) Current Credit Balance Total (converted)
       Col 44 (AS) Parent Account
       Col 45 (AT) Parent Account ID
+      Col 46 (AU) Account Cohort
     """
     ws = wb['Accs for ARR Work']
     accounts = {}
@@ -145,6 +146,7 @@ def read_accounts(wb):
             'eoq4_b1': safe_float(row[23]) if len(row) > 23 else 0,    # X = EoQ4 2025 ARR B1
             'eoq4_b2': safe_float(row[25]) if len(row) > 25 else 0,    # Z = EoQ4 2025 ARR B2
             'tam_type': safe_str(row[6]),     # G = TAM Type
+            'account_cohort': safe_str(row[46]) if len(row) > 46 else '',  # AU = Account Cohort
         }
         acc_casesafe_to_up[acc_id] = up_id
         if len(acc_id) >= 15:
@@ -541,22 +543,8 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         country = acc_info.get('country', '') or 'Unknown'
         industry = acc_info.get('industry', '') or 'Unknown'
 
-        # Compute cohort from NRR (same logic as BCL)
-        if ly > 0:
-            nrr = round((ty / ly - 1) * 100, 1)
-        elif ty > 0:
-            nrr = 100  # New customer
-        else:
-            nrr = 0
-
-        if nrr > 20:
-            cohort = 'Growing'
-        elif nrr < -20:
-            cohort = 'Declining'
-        elif nrr != 0:
-            cohort = 'Stable'
-        else:
-            cohort = 'New/Unknown'
+        # Account Cohort from the sheet (column AU)
+        cohort = acc_info.get('account_cohort', '') or 'Unknown'
 
         dim_groups['cohort'][cohort]['tytd'] += ty
         dim_groups['cohort'][cohort]['lytd'] += ly
