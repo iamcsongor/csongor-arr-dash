@@ -1078,8 +1078,8 @@ function renderFilters() {
       <div class="filter-group"><label>Active</label>
         <div class="filter-pills" id="activePills">
           <span class="fpill active" data-val="all" onclick="setActive('all')">All</span>
-          <span class="fpill" data-val="yes" onclick="setActive('yes')">✅</span>
-          <span class="fpill" data-val="no" onclick="setActive('no')">❌</span>
+          <span class="fpill" data-val="yes" onclick="setActive('yes')"><span style="color:#10FBCF">●</span> Yes</span>
+          <span class="fpill" data-val="no" onclick="setActive('no')"><span style="color:#cbd5e1">○</span> No</span>
         </div>
       </div>
       <div class="filter-group"><label>Billing Status</label>
@@ -1262,7 +1262,6 @@ function getFilteredCIs() {
 
 // ── CI Table ──
 const CI_COLS = [
-  { key: 'active', label: '✓', render: (v, ci) => v ? '✅' : '❌', cls: 'center' },
   { key: 'bucket', label: 'ARR Bucket', render: (v, ci) => bucketBadge(v) },
   { key: 'account', label: 'Account', render: (v, ci) => sfLink(ci.account_id, v) },
   { key: 'name', label: 'Contract Item', render: (v, ci) => sfLink(ci.ci_id, v) },
@@ -1281,6 +1280,7 @@ const CI_COLS = [
       '<span class="credit-pct ' + cls + '">' + pct + '%</span></div>';
   } },
   { key: 'billing_status', label: 'Billing Status', render: (v, ci) => '<span class="' + bsClass(v) + '">' + v + '</span>' },
+  { key: 'active', label: 'Active', render: (v, ci) => v ? '<span style="color:#10FBCF;font-size:16px" title="Active">●</span>' : '<span style="color:#cbd5e1;font-size:16px" title="Inactive">○</span>', cls: 'center' },
   { key: 'start_date', label: 'Start' },
   { key: 'end_date', label: 'End' },
 ];
