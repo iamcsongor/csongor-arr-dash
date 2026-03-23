@@ -1687,7 +1687,7 @@ function drawGroupChart() {
     '</div>';
 }
 
-// ── MoM Chart (Testing Revenue Jan-Dec, TY vs LY) ──
+// ── MoM Chart (Testing Revenue Jan-Dec, bars + lines) ──
 function drawMoMChart() {
   const canvas = document.getElementById('momChart');
   const ctx = canvas.getContext('2d');
@@ -1698,151 +1698,142 @@ function drawMoMChart() {
   ctx.scale(dpr, dpr);
   const W = rect.width, H = rect.height;
   const pad = { top: 20, right: 20, bottom: 40, left: 70 };
-  const chartW = W - pad.left - pad.right;
-  const chartH = H - pad.top - pad.bottom;
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
 
   const rev = CEO.monthly_rev;
   const today = new Date();
   const ty = today.getFullYear();
-  const ly = ty - 1;
   const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // Build Jan-Dec arrays for TY and LY
-  const tyVals = [];
-  const lyVals = [];
-  for (let m = 1; m <= 12; m++) {
-    const tyKey = ty + '-' + String(m).padStart(2, '0');
-    const lyKey = ly + '-' + String(m).padStart(2, '0');
-    tyVals.push(rev[tyKey] || 0);
-    lyVals.push(rev[lyKey] || 0);
-  }
+  // Build per-year monthly arrays from available data
+  const yearData = {};
+  Object.keys(rev).forEach(k => {
+    const parts = k.split('-');
+    const yr = parseInt(parts[0]);
+    const mo = parseInt(parts[1]) - 1;
+    if (!yearData[yr]) yearData[yr] = new Array(12).fill(0);
+    yearData[yr][mo] = rev[k] || 0;
+  });
 
-  // Current month index (0-based)
-  const currentMonthIdx = today.getMonth(); // 0=Jan
+  const tyVals = yearData[ty] || new Array(12).fill(0);
+  const prevYears = Object.keys(yearData).map(Number).filter(y => y < ty).sort();
 
-  const allVals = [...tyVals, ...lyVals].filter(v => v > 0);
-  const maxVal = Math.max(...allVals, 1) * 1.15;
-  const xStep = chartW / 11; // 12 months, 11 gaps
+  const allVals = [...tyVals];
+  prevYears.forEach(y => { allVals.push(...(yearData[y] || [])); });
+  const maxVal = Math.max(...allVals.filter(v => v > 0), 1);
 
-  function toX(i) { return pad.left + i * xStep; }
-  function toY(v) { return pad.top + chartH - (v / maxVal) * chartH; }
+  const barCount = 12;
+  const barW = Math.min(cW / barCount * 0.6, 40);
+  const gap = (cW - barW * barCount) / (barCount + 1);
 
   ctx.clearRect(0, 0, W, H);
 
-  // Grid
-  ctx.strokeStyle = '#eef3f2';
+  function niceStep(maxV) {
+    if (maxV <= 0) return 1;
+    const pow = Math.pow(10, Math.floor(Math.log10(maxV)));
+    const candidates = [pow * 0.1, pow * 0.2, pow * 0.5, pow, pow * 2, pow * 5];
+    for (let c of candidates) {
+      if (Math.ceil(maxV / c) <= 6 && Math.ceil(maxV / c) >= 2) return c;
+    }
+    return pow;
+  }
+  const step = niceStep(maxVal);
+  const niceMax = Math.ceil(maxVal / step) * step;
+
+  function barX(i) { return pad.left + gap + i * (barW + gap); }
+  function barCX(i) { return barX(i) + barW / 2; }
+  function toY(v) { return pad.top + cH - (v / niceMax) * cH; }
+
+  // Y-axis grid
+  ctx.strokeStyle = '#e8efed';
   ctx.lineWidth = 1;
-  const gridSteps = 5;
-  for (let i = 0; i <= gridSteps; i++) {
-    const y = pad.top + (chartH / gridSteps) * i;
+  ctx.fillStyle = '#5e8885';
+  ctx.font = '13px Arial';
+  ctx.textAlign = 'right';
+  for (let tick = 0; tick <= niceMax; tick += step) {
+    const y = toY(tick);
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
-    const val = maxVal - (maxVal / gridSteps) * i;
-    ctx.fillStyle = '#8aaba9';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'right';
-    ctx.fillText('€' + Math.round(val / 1000) + 'k', pad.left - 8, y + 3);
+    ctx.fillText(tick >= 1000 ? (tick / 1000).toFixed(0) + 'K' : tick.toString(), pad.left - 8, y + 4);
   }
 
-  // X-axis
-  ctx.fillStyle = '#8aaba9';
-  ctx.font = '12px Arial';
-  ctx.textAlign = 'center';
-  monthLabels.forEach((label, i) => {
-    ctx.fillText(label, toX(i), H - pad.bottom + 16);
-  });
-
-  // Draw LY line (dashed, muted purple)
-  ctx.strokeStyle = '#9c27b0';
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.4;
-  ctx.setLineDash([6, 4]);
-  ctx.beginPath();
-  let lyStarted = false;
-  lyVals.forEach((v, i) => {
-    if (v > 0) {
-      if (!lyStarted) { ctx.moveTo(toX(i), toY(v)); lyStarted = true; }
-      else ctx.lineTo(toX(i), toY(v));
-    }
-  });
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.globalAlpha = 1;
-
-  // LY dots
-  lyVals.forEach((v, i) => {
-    if (v > 0) {
-      ctx.beginPath();
-      ctx.arc(toX(i), toY(v), 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#9c27b0';
-      ctx.globalAlpha = 0.4;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-  });
-
-  // Draw TY line (solid purple) — only completed months + current as open circle
-  const lastCompletedIdx = currentMonthIdx - 1; // months before current are complete
-  ctx.strokeStyle = '#9c27b0';
-  ctx.lineWidth = 2.5;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  let tyStarted = false;
+  // Current year bars (subtle)
   tyVals.forEach((v, i) => {
-    if (i <= lastCompletedIdx && v > 0) {
-      if (!tyStarted) { ctx.moveTo(toX(i), toY(v)); tyStarted = true; }
-      else ctx.lineTo(toX(i), toY(v));
-    }
-  });
-  ctx.stroke();
-
-  // TY dots (solid)
-  tyVals.forEach((v, i) => {
-    if (v > 0 && i <= lastCompletedIdx) {
-      ctx.beginPath();
-      ctx.arc(toX(i), toY(v), 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#9c27b0';
-      ctx.fill();
-    }
-  });
-
-  // Dashed line from last completed to current month
-  if (lastCompletedIdx >= 0 && tyVals[lastCompletedIdx] > 0 && tyVals[currentMonthIdx] > 0) {
-    ctx.strokeStyle = '#9c27b0';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 3]);
+    if (v <= 0) return;
+    const x = barX(i);
+    const barH = (v / niceMax) * cH;
+    const y = pad.top + cH - barH;
+    ctx.fillStyle = 'rgba(0, 44, 42, 0.45)';
     ctx.beginPath();
-    ctx.moveTo(toX(lastCompletedIdx), toY(tyVals[lastCompletedIdx]));
-    ctx.lineTo(toX(currentMonthIdx), toY(tyVals[currentMonthIdx]));
+    const r = Math.min(3, barH / 2);
+    ctx.moveTo(x, y + r);
+    ctx.arcTo(x, y, x + barW, y, r);
+    ctx.arcTo(x + barW, y, x + barW, y + barH, r);
+    ctx.lineTo(x + barW, pad.top + cH);
+    ctx.lineTo(x, pad.top + cH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 44, 42, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Previous years as dashed lines
+  const lineColors = ['#FA538C', '#BA6DFB', '#8aaba9'];
+  prevYears.slice(-3).reverse().forEach((yr, idx) => {
+    const vals = yearData[yr] || [];
+    const color = lineColors[idx] || '#8aaba9';
+    const opacity = idx === 0 ? 0.7 : 0.35;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = idx === 0 ? 2 : 1.5;
+    ctx.globalAlpha = opacity;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath();
+    let started = false;
+    vals.forEach((v, i) => {
+      if (v > 0) {
+        const x = barCX(i);
+        const y = toY(v);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
+    });
     ctx.stroke();
     ctx.setLineDash([]);
-  }
+    vals.forEach((v, i) => {
+      if (v > 0) {
+        ctx.beginPath();
+        ctx.arc(barCX(i), toY(v), 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+    });
+    ctx.globalAlpha = 1;
+  });
 
-  // Current month dot (open circle = incomplete)
-  if (tyVals[currentMonthIdx] > 0) {
-    ctx.beginPath();
-    ctx.arc(toX(currentMonthIdx), toY(tyVals[currentMonthIdx]), 4.5, 0, Math.PI * 2);
-    ctx.strokeStyle = '#9c27b0';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    // Label for current month value
-    ctx.fillStyle = '#9c27b0';
-    ctx.font = 'bold 11px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('€' + Math.round(tyVals[currentMonthIdx] / 1000) + 'k', toX(currentMonthIdx), toY(tyVals[currentMonthIdx]) - 12);
-  }
+  // X labels
+  ctx.fillStyle = '#5e8885';
+  ctx.font = '13px Arial';
+  ctx.textAlign = 'center';
+  monthLabels.forEach((label, i) => {
+    ctx.fillText(label, barCX(i), pad.top + cH + 16);
+  });
 
-  // Store data for hover tooltip
-  canvas._mom = { toX, toY, tyVals, lyVals, monthLabels, currentMonthIdx, maxVal, pad, chartW, chartH, ty, ly };
+  // Store for hover
+  canvas._mom = { tyVals, yearData, prevYears: prevYears.slice(-3).reverse(), niceMax, barX, barCX, toY, barW, pad, cH, ty, monthLabels };
 
   // Hover tooltip
   canvas.onmousemove = function(e) {
     const r = canvas.getBoundingClientRect();
     const mx = e.clientX - r.left;
-    const dayF = (mx - pad.left) / xStep;
-    const idx = Math.round(dayF);
-    if (idx < 0 || idx > 11 || mx < pad.left || mx > pad.left + chartW) {
+    const c = canvas._mom;
+    if (!c) return;
+    let idx = -1;
+    for (let i = 0; i < 12; i++) {
+      const bx = c.barX(i);
+      if (mx >= bx && mx <= bx + c.barW) { idx = i; break; }
+    }
+    if (idx < 0) {
       const t = document.getElementById('momTooltip');
       if (t) t.style.display = 'none';
       return;
@@ -1851,17 +1842,15 @@ function drawMoMChart() {
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.id = 'momTooltip';
-      tooltip.style.cssText = 'position:fixed;background:#002C2A;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.6';
       document.body.appendChild(tooltip);
     }
-    let html = '<strong>' + monthLabels[idx] + '</strong>';
-    if (tyVals[idx] > 0) html += '<br>' + ty + ': <span style="color:#BA6DFB;font-weight:700">€' + Math.round(tyVals[idx]).toLocaleString() + '</span>';
-    if (lyVals[idx] > 0) html += '<br>' + ly + ': <span style="color:#BA6DFB;opacity:.5">€' + Math.round(lyVals[idx]).toLocaleString() + '</span>';
-    if (tyVals[idx] > 0 && lyVals[idx] > 0) {
-      const chg = Math.round((tyVals[idx] / lyVals[idx] - 1) * 100);
-      const clr = chg >= 0 ? '#0D9B7A' : '#f87171';
-      html += '<br><span style="color:' + clr + '">' + (chg >= 0 ? '▲' : '▼') + ' ' + (chg >= 0 ? '+' : '') + chg + '%</span>';
-    }
+    let html = '<div style="font-weight:700;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:3px">' + c.monthLabels[idx] + '</div>';
+    html += '<div style="display:flex;justify-content:space-between;gap:14px"><span>' + c.ty + '</span><span style="font-weight:600">€' + Math.round(c.tyVals[idx]).toLocaleString() + '</span></div>';
+    c.prevYears.forEach(yr => {
+      const v = (c.yearData[yr] || [])[idx] || 0;
+      if (v > 0) html += '<div style="display:flex;justify-content:space-between;gap:14px;opacity:.7"><span>' + yr + '</span><span>€' + Math.round(v).toLocaleString() + '</span></div>';
+    });
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';
@@ -1873,9 +1862,14 @@ function drawMoMChart() {
   };
 
   // Legend
-  document.getElementById('momLegend').innerHTML =
-    '<div class="ceo-legend-item"><span style="display:inline-block;width:16px;height:2px;background:#9c27b0;vertical-align:middle;margin-right:4px"></span>' + ty + ' (This Year)</div>' +
-    '<div class="ceo-legend-item"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #9c27b0;opacity:.4;vertical-align:middle;margin-right:4px"></span>' + ly + ' (Last Year)</div>';
+  let legHtml = '<div style="display:flex;gap:14px;font-size:13px;color:#5e8885;align-items:center">' +
+    '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(0,44,42,.45);border:1px solid rgba(0,44,42,.7);border-radius:2px;vertical-align:middle;margin-right:4px"></span>' + ty + '</span>';
+  prevYears.slice(-3).reverse().forEach((yr, idx) => {
+    const color = lineColors[idx] || '#8aaba9';
+    legHtml += '<span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed ' + color + ';opacity:' + (idx === 0 ? '.7' : '.35') + ';vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
+  });
+  legHtml += '</div>';
+  document.getElementById('momLegend').innerHTML = legHtml;
 }
 
 // ── Daily Cumulative Chart with Forecast ──
