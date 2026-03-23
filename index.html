@@ -395,7 +395,16 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 <div class="header">
   <div class="header-left">
     <h1>Cambri ARR Dashboard</h1>
-    <p id="metaInfo" style="font-size:13px;color:#5CECC6;margin-top:3px;position:relative">Loading data...</p>
+    <p id="metaInfo" style="font-size:13px;color:#5CECC6;margin-top:3px;position:relative;display:flex;align-items:center;gap:12px">
+      <span id="metaText">Loading data...</span>
+      <a href="https://github.com/iamcsongor/csongor-arr-dash/actions/workflows/refresh.yml" target="_blank" rel="noopener"
+         style="font-size:11px;color:#8aaba9;background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.2s"
+         onmouseover="this.style.color='#10FBCF';this.style.borderColor='#10FBCF'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
+         title="Open GitHub Actions to trigger a data refresh">↻ Refresh Data</a>
+      <span onclick="location.reload()" style="font-size:11px;color:#8aaba9;background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);transition:all 0.2s"
+         onmouseover="this.style.color='#10FBCF';this.style.borderColor='#10FBCF'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
+         title="Reload page to show latest data">↺ Reload</span>
+    </p>
   </div>
   <div class="ceo-toggle">
     <button class="ceo-btn" onclick="switchView('ceo')">CEO Dashboard</button>
@@ -2289,7 +2298,8 @@ async function loadData() {
         CEO = full.ceo || {};
         // Update meta
         const metaEl = document.getElementById('metaInfo');
-        if (metaEl) metaEl.textContent = 'Annual Recurring Revenue & Testing Revenue by Ultimate Parent · Extracted ' + (full.meta && full.meta.extracted ? full.meta.extracted : 'N/A');
+        const metaText = document.getElementById('metaText');
+        if (metaText) metaText.textContent = 'Annual Recurring Revenue & Testing Revenue by Ultimate Parent · Extracted ' + (full.meta && full.meta.extracted ? full.meta.extracted : 'N/A');
         // Initialize all views
         if (DATA.length) init();
         initCA();
