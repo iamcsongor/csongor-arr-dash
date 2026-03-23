@@ -541,7 +541,7 @@ function sfLink(id, text) {
 
 // State
 let currentUP = null;
-let ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
+let ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
 let ciSortCol = null;
 let ciSortDir = 1;
 
@@ -666,7 +666,7 @@ function init() {
 function renderUP() {
   const idx = +document.getElementById('upSelect').value;
   currentUP = DATA[idx];
-  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
+  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
   ciSortCol = null;
 
   // Update search input and chips
@@ -1080,6 +1080,7 @@ function renderFilters() {
   const up = currentUP;
   const accs = up.ci_accounts || [];
   const bss = up.ci_billing_statuses || [];
+  const pfs = [...new Set((up.contract_items || []).map(ci => ci.product_family).filter(Boolean))].sort();
 
   document.getElementById('filtersBar').innerHTML = `
     <div class="filters-row">
@@ -1133,6 +1134,19 @@ function renderFilters() {
           </div>
         </div>
       </div>
+      <div class="filter-group"><label>Product Family</label>
+        <div class="multi-select" id="msProductFamily">
+          <div class="multi-select-trigger" onclick="toggleMS('msProductFamily')">
+            <span class="selected-text" id="msProductFamilyText">All families</span>
+            <span class="arrow">▾</span>
+          </div>
+          <div class="multi-select-dropdown" id="msProductFamilyDD">
+            <div class="ms-search"><input type="text" placeholder="Search..." oninput="filterMSOptions('msProductFamily', this.value)"></div>
+            <div class="ms-option" onclick="toggleAllMS('msProductFamily')"><input type="checkbox" id="msProductFamilyAll" checked> <em>Select All</em></div>
+            ${pfs.map(p => '<div class="ms-option ms-item" data-val="' + escHTML(p) + '"><input type="checkbox" checked> ' + escHTML(p) + '</div>').join('')}
+          </div>
+        </div>
+      </div>
       <div class="filter-group"><label>Start From</label><input type="date" id="startFrom" onchange="ciFilters.startFrom=this.value; renderCITable()"></div>
       <div class="filter-group"><label>Start To</label><input type="date" id="startTo" onchange="ciFilters.startTo=this.value; renderCITable()"></div>
       <div class="filter-group"><label>End From</label><input type="date" id="endFrom" onchange="ciFilters.endFrom=this.value; renderCITable()"></div>
@@ -1180,7 +1194,7 @@ function updateMSText(id) {
   const items = document.querySelectorAll('#' + id + 'DD .ms-item');
   const selected = getSelectedMS(id);
   const textEl = document.getElementById(id + 'Text');
-  const allLabel = id === 'msAccounts' ? 'All accounts' : 'All statuses';
+  const allLabel = id === 'msAccounts' ? 'All accounts' : id === 'msProductFamily' ? 'All families' : 'All statuses';
   if (selected.length === items.length || selected.length === 0) {
     textEl.textContent = allLabel;
   } else if (selected.length <= 2) {
@@ -1243,13 +1257,16 @@ function setActive(val) {
 }
 
 function resetFilters() {
-  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
+  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
   document.querySelectorAll('#msAccountsDD .ms-item input').forEach(cb => cb.checked = true);
   document.getElementById('msAccountsAll').checked = true;
   updateMSText('msAccounts');
   document.querySelectorAll('#msBillingStatusDD .ms-item input').forEach(cb => cb.checked = true);
   document.getElementById('msBillingStatusAll').checked = true;
   updateMSText('msBillingStatus');
+  document.querySelectorAll('#msProductFamilyDD .ms-item input').forEach(cb => cb.checked = true);
+  document.getElementById('msProductFamilyAll').checked = true;
+  updateMSText('msProductFamily');
   document.getElementById('startFrom').value = '';
   document.getElementById('startTo').value = '';
   document.getElementById('endFrom').value = '';
@@ -1280,6 +1297,12 @@ function getFilteredCIs() {
   if (selBS.length < allBSItems.length && selBS.length > 0) {
     const bsSet = new Set(selBS);
     items = items.filter(ci => bsSet.has(ci.billing_status));
+  }
+  const selPF = getSelectedMS('msProductFamily');
+  const allPFItems = document.querySelectorAll('#msProductFamilyDD .ms-item');
+  if (selPF.length < allPFItems.length && selPF.length > 0) {
+    const pfSet = new Set(selPF);
+    items = items.filter(ci => pfSet.has(ci.product_family));
   }
   if (ciFilters.startFrom) items = items.filter(ci => ci.start_iso >= ciFilters.startFrom);
   if (ciFilters.startTo) items = items.filter(ci => ci.start_iso <= ciFilters.startTo);
