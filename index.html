@@ -736,6 +736,17 @@ function buildSparkline(values, w, h) {
 }
 
 // ── KPIs ──
+function eoqDelta(current, prev) {
+  if (!prev) return '';
+  const diff = current - prev;
+  const pctChg = prev !== 0 ? Math.round((diff / prev) * 100) : 0;
+  const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
+  const color = diff > 0 ? '#10FBCF' : diff < 0 ? '#f87171' : '#8aaba9';
+  return '<div style="margin-top:4px;font-size:10px;color:#6b8a88;line-height:1.3">' +
+    '<span style="opacity:0.6">EoQ4 \'25: ' + fmtEur(prev) + '</span> ' +
+    '<span style="color:' + color + ';font-weight:600">' + arrow + ' ' + (pctChg > 0 ? '+' : '') + pctChg + '%</span></div>';
+}
+
 function renderKPIs() {
   const up = currentUP;
   const qualifying = up.contract_items.filter(ci => ci.bucket === 'B1' || ci.bucket === 'B2').length;
@@ -745,9 +756,9 @@ function renderKPIs() {
     : '<div class="kpi kpi-stat"><div class="label">Testing Revenue</div><div class="value">—</div><div class="sub">No sample data</div></div>';
 
   document.getElementById('kpiRow').innerHTML =
-    '<div class="kpi kpi-b1"><div class="label">B1 ARR</div><div class="value">' + fmtEur(up.b1_arr) + '</div><div class="sub">' + up.b1_items + ' contributing items</div></div>' +
-    '<div class="kpi kpi-b2"><div class="label">B2 ARR</div><div class="value">' + fmtEur(up.b2_arr) + '</div><div class="sub">' + up.b2_items + ' contributing items</div></div>' +
-    '<div class="kpi kpi-total"><div class="label">Total ARR</div><div class="value">' + fmtEur(up.total_arr) + '</div><div class="sub">' + qualifying + ' qualifying items</div></div>' +
+    '<div class="kpi kpi-b1"><div class="label">B1 ARR</div><div class="value">' + fmtEur(up.b1_arr) + '</div><div class="sub">' + up.b1_items + ' contributing items</div>' + eoqDelta(up.b1_arr, up.eoq4_b1) + '</div>' +
+    '<div class="kpi kpi-b2"><div class="label">B2 ARR</div><div class="value">' + fmtEur(up.b2_arr) + '</div><div class="sub">' + up.b2_items + ' contributing items</div>' + eoqDelta(up.b2_arr, up.eoq4_b2) + '</div>' +
+    '<div class="kpi kpi-total"><div class="label">Total ARR</div><div class="value">' + fmtEur(up.total_arr) + '</div><div class="sub">' + qualifying + ' qualifying items</div>' + eoqDelta(up.total_arr, up.eoq4_total) + '</div>' +
     testingKpi +
     '<div class="kpi kpi-stat"><div class="label">Accounts</div><div class="value">' + up.account_count + '</div><div class="sub">' + up.ci_count + ' contract items</div></div>';
 }

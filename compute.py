@@ -141,6 +141,9 @@ def read_accounts(wb):
             'hierarchy_total_arr': safe_float(row[27]) if len(row) > 27 else 0,  # AB
             'hierarchy_b1_arr': safe_float(row[29]) if len(row) > 29 else 0,  # AD
             'hierarchy_b2_arr': safe_float(row[31]) if len(row) > 31 else 0,  # AF
+            'eoq4_total': safe_float(row[21]) if len(row) > 21 else 0,  # V = EoQ4 2025 ARR Total
+            'eoq4_b1': safe_float(row[23]) if len(row) > 23 else 0,    # X = EoQ4 2025 ARR B1
+            'eoq4_b2': safe_float(row[25]) if len(row) > 25 else 0,    # Z = EoQ4 2025 ARR B2
             'tam_type': safe_str(row[6]),     # G = TAM Type
         }
         acc_casesafe_to_up[acc_id] = up_id
@@ -607,11 +610,15 @@ def extract_up_explorer(accounts, id15_to_id18, acc_casesafe_to_up, all_ci, samp
         h_b1 = up_acc.get('hierarchy_b1_arr', 0) or 0
         h_b2 = up_acc.get('hierarchy_b2_arr', 0) or 0
         h_total = up_acc.get('hierarchy_total_arr', 0) or 0
+        eoq4_b1 = up_acc.get('eoq4_b1', 0) or 0
+        eoq4_b2 = up_acc.get('eoq4_b2', 0) or 0
+        eoq4_total = up_acc.get('eoq4_total', 0) or 0
 
         up_data.append({
             'id': up_id,
             'name': up_name,
             'b1_arr': round(h_b1, 2), 'b2_arr': round(h_b2, 2), 'total_arr': round(h_total, 2),
+            'eoq4_b1': round(eoq4_b1, 2), 'eoq4_b2': round(eoq4_b2, 2), 'eoq4_total': round(eoq4_total, 2),
             'b1_items': up_b1_items.get(up_id, 0),
             'b2_items': up_b2_items.get(up_id, 0),
             'account_count': len(acc_ids),
