@@ -285,6 +285,10 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
     # Per-account YTD testing revenue for grouping
     acc_ytd_ty = defaultdict(float)  # acc_id18 -> TYTD
     acc_ytd_ly = defaultdict(float)  # acc_id18 -> LYTD
+
+    # Active customers with same-day cutoff (CEO exclusion criteria)
+    active_ups_ytd = set()
+    active_ups_lytd = set()
     # The cutoff date for last year is the same month/day but in the previous year
     try:
         ly_cutoff = datetime.date(current_year - 1, today.month, today.day)
@@ -361,6 +365,12 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
             company_daily_rev[key][dy] += rev_f
             if up_name:
                 up_yearly_rev_ceo[up_name][yr] += rev_f
+                # Track active customers with same-day cutoff
+                sample_date_ceo = datetime.date(yr, mo, dy)
+                if yr == current_year and sample_date_ceo <= today:
+                    active_ups_ytd.add(up_name)
+                elif yr == current_year - 1 and sample_date_ceo <= ly_cutoff:
+                    active_ups_lytd.add(up_name)
 
         # Testing revenue aggregation (exclude Not to be Invoiced, Not reconciled, Data Loaded Back Data)
         if status not in EXCLUDED_STATUSES_TESTING:
@@ -402,6 +412,8 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
         'ytd_testing_last_year': ytd_testing_last_year,
         'acc_ytd_ty': dict(acc_ytd_ty),
         'acc_ytd_ly': dict(acc_ytd_ly),
+        'active_ups_ytd': len(active_ups_ytd),
+        'active_ups_lytd': len(active_ups_lytd),
     }
 
 
@@ -467,11 +479,9 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         round((tytd_total / lytd_total - 1) * 100, 1) if lytd_total > 0 else None
     )
 
-    # Active customers YTD
-    active_customers_ytd = set()
-    for up_name, yearly in up_yearly_rev_ceo.items():
-        if yearly.get(current_year, 0) > 0:
-            active_customers_ytd.add(up_name)
+    # Active customers YTD (with same-day cutoff from read_samples)
+    active_customers_ytd = samples_data.get('active_ups_ytd', 0)
+    active_customers_lytd = samples_data.get('active_ups_lytd', 0)
 
     # Cumulative chart — build from daily data (replaces old formulas sheet)
     # We build series for the last 13 months (current + 12 prior)
@@ -594,7 +604,7 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         f"    Testing Revenue YTD: {round(ytd_testing_ty):,}, "
         f"LYTD: {round(ytd_testing_ly):,}, Growth: {ytd_testing_growth}%"
     )
-    print(f"    Active customers YTD: {len(active_customers_ytd)}")
+    print(f"    Active customers YTD: {active_customers_ytd}, LYTD: {active_customers_lytd}")
     print(f"    Total Live ARR: {round(total_live_arr):,}, EoQ4 ARR: {round(total_eoq4_arr):,}, Change: {arr_change_pct}%")
     for dim, entries in grouped_testing_rev.items():
         print(f"    Grouped by {dim}: {len(entries)} groups")
@@ -607,7 +617,8 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         'lytd': round(lytd_total, 2),
         'tytd': round(tytd_total, 2),
         'ytd_growth': ytd_growth,
-        'active_customers_ytd': len(active_customers_ytd),
+        'active_customers_ytd': active_customers_ytd,
+        'active_customers_lytd': active_customers_lytd,
         'ytd_testing_this_year': ytd_testing_ty,
         'ytd_testing_last_year': ytd_testing_ly,
         'ytd_testing_growth': ytd_testing_growth,

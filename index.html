@@ -259,6 +259,10 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .ceo-kpi .sub { font-size: 12px; font-weight: 600; }
 .ceo-kpi .sub.positive { color: #008a73; }
 .ceo-kpi .sub.negative { color: #a0001e; }
+.ceo-kpi { position: relative; }
+.kpi-info { position: absolute; top: 8px; right: 10px; width: 16px; height: 16px; border-radius: 50%; background: #e8efed; color: #5e8885; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; cursor: default; font-style: italic; font-family: Georgia, serif; }
+.kpi-info:hover + .kpi-info-tip, .kpi-info-tip:hover { display: block; }
+.kpi-info-tip { display: none; position: absolute; top: 28px; right: 4px; background: #002C2A; color: #fff; font-size: 11px; padding: 8px 12px; border-radius: 8px; width: 210px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.2); line-height: 1.4; text-align: left; font-weight: 400; }
 
 .ceo-chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
 .ceo-chart-card { background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 1px 4px rgba(0,44,42,.08); border: 1px solid #e8efed; }
@@ -1436,15 +1440,32 @@ function renderCEODashboard() {
   const arrChgArrow = arrChg != null ? (arrChg >= 0 ? '▲' : '▼') : '';
   const arrChgStr = arrChg != null ? ((arrChg >= 0 ? '+' : '') + arrChg + '%') : '—';
 
+  // Active customers with LYTD comparison
+  const activeTY = CEO.active_customers_ytd || 0;
+  const activeLY = CEO.active_customers_lytd || 0;
+  const activeDiff = activeTY - activeLY;
+  const activeArrow = activeDiff > 0 ? '▲' : activeDiff < 0 ? '▼' : '—';
+  const activeClr = activeDiff >= 0 ? '#0D9B7A' : '#f87171';
+
+  function kpiInfo(tip) { return '<span class="kpi-info">i</span><div class="kpi-info-tip">' + tip + '</div>'; }
+
   kpiRow.innerHTML =
-    '<div class="ceo-kpi"><div class="label">Testing Revenue YTD</div><div class="val">' + fmtEur(testTY) + '</div><div class="sub ' + testGrowthCls + '">' + testGrowthArrow + ' ' + testGrowthStr + ' vs LYTD</div></div>' +
-    '<div class="ceo-kpi"><div class="label">Testing Revenue LYTD</div><div class="val">' + fmtEur(testLY) + '</div><div class="sub">Same period last year</div></div>' +
-    '<div class="ceo-kpi"><div class="label">Total ARR</div><div class="val">' + fmtEur(liveARR) + '</div>' +
+    '<div class="ceo-kpi">' + kpiInfo('Sum of sample revenue (converted) YTD where status &ne; &ldquo;Not to be Invoiced&rdquo;, with date completed up to today.') +
+      '<div class="label">Testing Revenue YTD</div><div class="val">' + fmtEur(testTY) + '</div><div class="sub ' + testGrowthCls + '">' + testGrowthArrow + ' ' + testGrowthStr + ' vs LYTD</div></div>' +
+    '<div class="ceo-kpi">' + kpiInfo('Same metric as YTD but for the previous year, up to the same calendar date.') +
+      '<div class="label">Testing Revenue LYTD</div><div class="val">' + fmtEur(testLY) + '</div><div class="sub">Same period last year</div></div>' +
+    '<div class="ceo-kpi">' + kpiInfo('Hierarchy Live Total ARR summed across all Ultimate Parent accounts. Compared to End of Q4 2025 ARR.') +
+      '<div class="label">Total ARR</div><div class="val">' + fmtEur(liveARR) + '</div>' +
       '<div class="sub" style="margin-top:4px;font-size:10px;color:#6b8a88;line-height:1.3">' +
         '<span style="opacity:0.6">EoQ4 \'25: ' + fmtEur(eoq4ARR) + '</span> ' +
         '<span style="color:' + (arrChg >= 0 ? '#0D9B7A' : '#f87171') + ';font-weight:600">' + arrChgArrow + ' ' + arrChgStr + '</span>' +
       '</div></div>' +
-    '<div class="ceo-kpi"><div class="label">Active Customers (YTD)</div><div class="val">' + CEO.active_customers_ytd + '</div><div class="sub">With testing revenue</div></div>';
+    '<div class="ceo-kpi">' + kpiInfo('Distinct Ultimate Parents with at least one invoicable sample (status &ne; Not reconciled, Not to be Invoiced) completed up to today\'s date this year vs same date last year.') +
+      '<div class="label">Active Customers (YTD)</div><div class="val">' + activeTY + '</div>' +
+      '<div class="sub" style="margin-top:4px;font-size:10px;color:#6b8a88;line-height:1.3">' +
+        '<span style="opacity:0.6">LYTD: ' + activeLY + '</span> ' +
+        '<span style="color:' + activeClr + ';font-weight:600">' + activeArrow + ' ' + (activeDiff > 0 ? '+' : '') + activeDiff + '</span>' +
+      '</div></div>';
 
   drawMoMChart();
   drawCumChart();
