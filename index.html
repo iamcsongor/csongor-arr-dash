@@ -1229,8 +1229,9 @@ function getFilteredCIs() {
   if (ciFilters.endFrom) items = items.filter(ci => ci.end_iso >= ciFilters.endFrom);
   if (ciFilters.endTo) items = items.filter(ci => ci.end_iso <= ciFilters.endTo);
   if (ciSortCol !== null) {
+    const sortKey = ciSortCol === 'start_date' ? 'start_iso' : ciSortCol === 'end_date' ? 'end_iso' : ciSortCol;
     items = [...items].sort((a, b) => {
-      let va = a[ciSortCol], vb = b[ciSortCol];
+      let va = a[sortKey], vb = b[sortKey];
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * ciSortDir;
       va = (va || '').toString().toLowerCase();
       vb = (vb || '').toString().toLowerCase();
