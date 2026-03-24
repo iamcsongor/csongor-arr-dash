@@ -2258,15 +2258,15 @@ function drawCumChart() {
 }
 
 // ── Customer Analysis ──
-let caFilters = { csm: [], cls: [], industry: [], account_cohort: [], tenure: [], status: [] };
+let caFilters = { csm: [], industry: [], account_cohort: [], tenure: [], status: [] };
 let caSortCol = null;
 let caSortAsc = true;
 
 function initCA() {
   const f = document.getElementById('caFilters');
   const dims = [
+    { key: 'status', label: 'Active Only', pill: true, options: ['Active'], optLabels: ['Active'] },
     { key: 'csm', label: 'CSM' },
-    { key: 'cls', label: 'Class' },
     { key: 'industry', label: 'Industry' },
     { key: 'account_cohort', label: 'Account Cohort' },
     { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'] }
@@ -2297,7 +2297,6 @@ function initCA() {
     });
     html += '</div></div></div>';
   });
-  html += '<div class="ca-filter-toggle"><div id="activeToggle" class="ca-toggle-btn" onclick="toggleActiveOnly()"></div><label onclick="toggleActiveOnly()">Active only</label></div>';
   html += '<button class="ca-reset" onclick="caResetFilters()">Reset</button>';
   f.innerHTML = html;
   // close dropdowns when clicking outside
@@ -2379,16 +2378,8 @@ function setPillFilter(key, val) {
   renderCA();
 }
 
-function toggleActiveOnly() {
-  const btn = document.getElementById('activeToggle');
-  const isOn = btn.classList.toggle('on');
-  caFilters.status = isOn ? ['Active'] : [];
-  renderCA();
-}
-
 function caResetFilters() {
-  caFilters = { csm: [], cls: [], industry: [], account_cohort: [], tenure: [], status: [] };
-  document.getElementById('activeToggle').classList.remove('on');
+  caFilters = { csm: [], industry: [], account_cohort: [], tenure: [], status: [] };
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
   // Reset all pill toggles
@@ -2405,7 +2396,6 @@ function getFilteredBCL() {
   return BCL.rows.filter(r => {
     if (caFilters.status.length && !caFilters.status.includes(r.status)) return false;
     if (caFilters.csm.length && !caFilters.csm.includes(r.csm)) return false;
-    if (caFilters.cls.length && !caFilters.cls.includes(r.cls)) return false;
     if (caFilters.industry.length && !caFilters.industry.includes(r.industry)) return false;
     if (caFilters.account_cohort.length && !caFilters.account_cohort.includes(r.account_cohort)) return false;
     if (caFilters.tenure.length && !caFilters.tenure.includes(r.tenure)) return false;
