@@ -2717,6 +2717,10 @@ function renderCATable(rows) {
       } else if (c.fmt === 'bar') {
         const barPct = maxScore ? ((vn || 0) / maxScore * 100) : 0;
         content = (vn != null ? vn.toFixed(0) : '—') + ' <span class="ca-bar purple" style="width:' + barPct + 'px"></span>';
+      } else if (c.key === 'account_cohort' && v) {
+        const acCol = v === 'Non-ICP' ? '#8a9a98' : v === 'Majors' ? '#7B61FF' : v.startsWith('ICP') ? '#0D9B7A' : '#5e8885';
+        const acBg = v === 'Non-ICP' ? '#eef1f0' : v === 'Majors' ? '#ede8ff' : v.startsWith('ICP') ? '#e4f5f0' : '#e8efed';
+        content = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;color:' + acCol + ';background:' + acBg + '">' + v + '</span>';
       } else if (c.key === 'growth_cohort' && v) {
         const gcColors = { '1. Ripping': '#002C2A', '2. Growth 25%+': '#006b5e', '3. Growth 5%+': '#1a8fa0', '4. Flat': '#3d5c5a', '5. Slowing <-5%': '#c2185b', '6. Crashing <-25%': '#460013' };
         const gcBg = { '1. Ripping': '#d4f7ed', '2. Growth 25%+': '#e0f7f4', '3. Growth 5%+': '#d9f0fd', '4. Flat': '#e8efed', '5. Slowing <-5%': '#fce4e8', '6. Crashing <-25%': '#fbd0da' };
