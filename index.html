@@ -2265,11 +2265,11 @@ let caSortAsc = true;
 function initCA() {
   const f = document.getElementById('caFilters');
   const dims = [
-    { key: 'status', label: 'Active Only', pill: true, options: ['Active'], optLabels: ['Active'] },
     { key: 'csm', label: 'CSM' },
     { key: 'industry', label: 'Industry' },
     { key: 'account_cohort', label: 'Account Cohort' },
-    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'] }
+    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'] },
+    { key: 'status', label: 'Active Only', pill: true, options: ['Active'], optLabels: ['Active'] }
   ];
   let html = '';
   dims.forEach(d => {
