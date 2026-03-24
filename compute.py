@@ -1101,6 +1101,8 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'total_fy24': round(fy24, 2),
             'total_fy25': round(fy25, 2),
             'arr_calc': round(total_arr, 2),
+            'hierarchy_live_arr': round(up_info.get('hierarchy_total_arr', 0) or 0, 2),
+            'eoq4_arr': round(up_info.get('eoq4_total', 0) or 0, 2),
             'pending': 0,
             'up_id': up_id,
             'tam_type': tam_type,
@@ -1158,6 +1160,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'lic_fy24': 0, 'lic_ytd': 0, 'cred_fy24': 0, 'cred_ytd': 0,
             'ms_fy24': 0, 'ms_ytd': 0, 'test_fy24': 0, 'test_ytd': round(tytd, 2),
             'total_fy24': 0, 'total_fy25': 0, 'arr_calc': 0,
+            'hierarchy_live_arr': 0, 'eoq4_arr': 0,
             'pending': 0, 'up_id': up_id_found, 'tam_type': '', 'credit_bal': 0,
             'sf_url': sf_url,
         }
