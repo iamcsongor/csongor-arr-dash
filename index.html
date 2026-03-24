@@ -308,7 +308,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 
 /* Summary strip */
 .ca-summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
-.ca-kpi { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,44,42,.08); border: 1px solid #e8efed; text-align: center; }
+.ca-kpi { position: relative; background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,44,42,.08); border: 1px solid #e8efed; text-align: center; }
 .ca-kpi .ca-k-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #5e8885; font-weight: 600; }
 .ca-kpi .ca-k-val { font-size: 24px; font-weight: 800; color: #002C2A; margin: 4px 0; }
 .ca-kpi .ca-k-sub { font-size: 12px; font-weight: 600; }
@@ -713,6 +713,7 @@ function renderUP() {
 // ── Formatting ──
 function fmtNum(n) { return Math.round(n || 0).toLocaleString('en-US'); }
 function fmtEur(n) { return '€' + fmtNum(n); }
+function fmtShort(n) { n = n || 0; if (Math.abs(n) >= 1e6) return '€' + (n/1e6).toFixed(1) + 'M'; if (Math.abs(n) >= 1e3) return '€' + Math.round(n/1e3) + 'k'; return '€' + Math.round(n); }
 function pct(a, b) { return b ? Math.round(a / b * 100) : 0; }
 
 function typeBadge(t) {
@@ -2253,6 +2254,17 @@ function initCA() {
   ];
   let html = '';
   dims.forEach(d => {
+    if (d.key === 'tenure') {
+      // Render as pill toggle instead of dropdown
+      const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
+      html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
+      html += '<div id="tenurePills" style="display:flex;border-radius:6px;overflow:hidden;border:1px solid #c8dbd9;font-size:11px;font-weight:600">';
+      html += '<button class="tp-btn active" data-val="all" onclick="setTenurePill(\'all\')" style="padding:6px 10px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:#002C2A;color:#fff">Both</button>';
+      html += '<button class="tp-btn" data-val="New Logo" onclick="setTenurePill(\'New Logo\')" style="padding:6px 10px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:#fff;color:#5e8885">New Logo</button>';
+      html += '<button class="tp-btn" data-val="Established Business" onclick="setTenurePill(\'Established Business\')" style="padding:6px 10px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:#fff;color:#5e8885">EB</button>';
+      html += '</div></div>';
+      return;
+    }
     const vals = [...new Set(BCL.rows.map(r => r[d.key]).filter(Boolean))].sort();
     const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
     html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
@@ -2331,10 +2343,30 @@ function caUpdateTrigger(ms) {
   }
 }
 
+function setTenurePill(val) {
+  if (val === 'all') {
+    caFilters.tenure = [];
+  } else {
+    caFilters.tenure = [val];
+  }
+  document.querySelectorAll('#tenurePills .tp-btn').forEach(b => {
+    const active = b.dataset.val === val;
+    b.style.background = active ? '#002C2A' : '#fff';
+    b.style.color = active ? '#fff' : '#5e8885';
+  });
+  renderCA();
+}
+
 function caResetFilters() {
   caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [], tenure: [] };
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
+  // Reset tenure pills
+  document.querySelectorAll('#tenurePills .tp-btn').forEach(b => {
+    const active = b.dataset.val === 'all';
+    b.style.background = active ? '#002C2A' : '#fff';
+    b.style.color = active ? '#fff' : '#5e8885';
+  });
   renderCA();
 }
 
@@ -2378,15 +2410,16 @@ function renderCASummary(rows) {
   const arrChgNum = eoq4Arr > 0 ? (liveArr / eoq4Arr - 1) * 100 : 0;
   const arrChgCol = arrChgNum >= 0 ? '#008a73' : '#a0001e';
   const el = document.getElementById('caSummary');
+  function caKpiTip(t) { return '<span class="kpi-info">i</span><div class="kpi-info-tip">' + t + '</div>'; }
   el.innerHTML =
-    '<div class="ca-kpi accent"><div class="ca-k-label">LYTD Revenue</div><div class="ca-k-val">' + fmtEur(lytd) + '</div><div class="ca-k-sub">Same period last year</div></div>' +
-    '<div class="ca-kpi accent"><div class="ca-k-label">TYTD Revenue</div><div class="ca-k-val">' + fmtEur(tytd) + '</div><div class="ca-k-sub ' + (net >= 0 ? 'pos' : 'neg') + '">' + (net >= 0 ? '▲' : '▼') + ' ' + fmtEur(Math.abs(net)) + '</div></div>' +
-    '<div class="ca-kpi"><div class="ca-k-label">Net Movement</div><div class="ca-k-val ' + (net >= 0 ? 'pos' : 'neg') + '" style="color:' + (net >= 0 ? '#008a73' : '#a0001e') + '">' + (net >= 0 ? '+' : '') + netPct + '%</div><div class="ca-k-sub">YoY change</div></div>' +
-    '<div class="ca-kpi"><div class="ca-k-label">Active Customers</div><div class="ca-k-val">' + active + '</div><div class="ca-k-sub">of ' + rows.length + ' filtered</div></div>' +
-    '<div class="ca-kpi"><div class="ca-k-label">Live ARR</div><div class="ca-k-val">' + fmtEur(liveArr) + '</div>' +
+    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted) for the same YTD period last year, across filtered UPs.') + '<div class="ca-k-label">LYTD Revenue</div><div class="ca-k-val">' + fmtEur(lytd) + '</div><div class="ca-k-sub">Same period last year</div></div>' +
+    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted) year-to-date this year, across filtered UPs.') + '<div class="ca-k-label">TYTD Revenue</div><div class="ca-k-val">' + fmtEur(tytd) + '</div><div class="ca-k-sub ' + (net >= 0 ? 'pos' : 'neg') + '">' + (net >= 0 ? '▲' : '▼') + ' ' + fmtEur(Math.abs(net)) + '</div></div>' +
+    '<div class="ca-kpi">' + caKpiTip('TYTD vs LYTD revenue as a percentage. Positive = growth, negative = decline.') + '<div class="ca-k-label">Net Movement</div><div class="ca-k-val ' + (net >= 0 ? 'pos' : 'neg') + '" style="color:' + (net >= 0 ? '#008a73' : '#a0001e') + '">' + (net >= 0 ? '+' : '') + netPct + '%</div><div class="ca-k-sub">YoY change</div></div>' +
+    '<div class="ca-kpi">' + caKpiTip('UPs with status Active, ARR Only, or Testing Only (excludes Churned and Inactive).') + '<div class="ca-k-label">Active Customers</div><div class="ca-k-val">' + active + '</div><div class="ca-k-sub">of ' + rows.length + ' filtered</div></div>' +
+    '<div class="ca-kpi">' + caKpiTip('Hierarchy Live ARR Total from UP accounts (child accounts rolled up). Compared against EoQ4 2025 ARR.') + '<div class="ca-k-label">Live ARR</div><div class="ca-k-val">' + fmtEur(liveArr) + '</div>' +
       '<div class="ca-k-sub" style="line-height:1.5">EoQ4 \'25: ' + fmtEur(eoq4Arr) +
       ' <span style="font-weight:700;color:' + arrChgCol + '">' + (arrChgNum >= 0 ? '+' : '') + arrChg + '%</span></div></div>' +
-    '<div class="ca-kpi"><div class="ca-k-label">Target FY26</div><div class="ca-k-val">' + fmtEur(totalTarget) + '</div><div class="ca-k-sub">Filtered cohort</div></div>';
+    '<div class="ca-kpi">' + caKpiTip('Sum of 2026 Testing Revenue Target across filtered UPs.') + '<div class="ca-k-label">Target FY26</div><div class="ca-k-val">' + fmtEur(totalTarget) + '</div><div class="ca-k-sub">Filtered cohort</div></div>';
 }
 
 function drawCAMonthChart(rows) {
@@ -2615,9 +2648,10 @@ function renderCACohorts(rows) {
     const key = cohortBreakdownMode === 'csm'
       ? (r.csm || 'Unassigned')
       : (r.account_cohort || 'Unknown');
-    if (!groups[key]) groups[key] = { count: 0, rev: 0 };
+    if (!groups[key]) groups[key] = { count: 0, rev: 0, arr: 0 };
     groups[key].count++;
     groups[key].rev += (r.tytd || 0);
+    groups[key].arr += (r.hierarchy_live_arr || 0);
   });
 
   const totalRev = Object.values(groups).reduce((s, c) => s + c.rev, 0) || 1;
@@ -2642,18 +2676,22 @@ function renderCACohorts(rows) {
   });
   barHtml += '</div>';
 
-  // Summary rows
-  let tableHtml = '<div style="display:grid;gap:6px">';
+  // Header row
+  let tableHtml = '<div style="display:grid;gap:5px">';
+  tableHtml += '<div style="display:grid;grid-template-columns:12px 1fr 32px 58px 58px 36px;gap:6px;align-items:center;font-size:10px;color:#8aaba9;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding-bottom:2px;border-bottom:1px solid #e8efed">';
+  tableHtml += '<div></div><div></div><div style="text-align:right">#</div><div style="text-align:right">Testing</div><div style="text-align:right">ARR</div><div style="text-align:right">%</div></div>';
+  // Data rows
   sorted.forEach((name, i) => {
     const d = groups[name];
     const pctR = (d.rev / totalRev * 100).toFixed(0);
     const bg = palette[i % palette.length];
-    tableHtml += '<div style="display:grid;grid-template-columns:12px 1fr 50px 70px 50px;gap:8px;align-items:center;font-size:12px">';
+    tableHtml += '<div style="display:grid;grid-template-columns:12px 1fr 32px 58px 58px 36px;gap:6px;align-items:center;font-size:12px">';
     tableHtml += '<div style="width:10px;height:10px;border-radius:2px;background:' + bg + '"></div>';
-    tableHtml += '<div style="font-weight:600;color:#002C2A">' + name + '</div>';
+    tableHtml += '<div style="font-weight:600;color:#002C2A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</div>';
     tableHtml += '<div style="text-align:right;font-weight:700">' + d.count + '</div>';
-    tableHtml += '<div style="text-align:right;color:#5e8885">€' + fmtNum(d.rev) + '</div>';
-    tableHtml += '<div style="text-align:right;color:#5e8885;font-size:13px">' + pctR + '%</div>';
+    tableHtml += '<div style="text-align:right;color:#5e8885">' + fmtShort(d.rev) + '</div>';
+    tableHtml += '<div style="text-align:right;color:#5e8885">' + fmtShort(d.arr) + '</div>';
+    tableHtml += '<div style="text-align:right;color:#5e8885">' + pctR + '%</div>';
     tableHtml += '</div>';
   });
   tableHtml += '</div>';
