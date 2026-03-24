@@ -2258,10 +2258,11 @@ function initCA() {
       // Render as pill toggle instead of dropdown
       const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
       html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
-      html += '<div id="tenurePills" style="display:flex;border-radius:6px;overflow:hidden;border:1px solid #c8dbd9;font-size:11px;font-weight:600">';
-      html += '<button class="tp-btn active" data-val="all" onclick="setTenurePill(\'all\')" style="padding:6px 10px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:#002C2A;color:#fff">Both</button>';
-      html += '<button class="tp-btn" data-val="New Logo" onclick="setTenurePill(\'New Logo\')" style="padding:6px 10px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:#fff;color:#5e8885">New Logo</button>';
-      html += '<button class="tp-btn" data-val="Established Business" onclick="setTenurePill(\'Established Business\')" style="padding:6px 10px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:#fff;color:#5e8885">EB</button>';
+      html += '<div id="tenurePills" style="display:flex;gap:4px">';
+      var tpStyle = 'padding:6px 12px;border-radius:16px;border:1px solid #c8dbd9;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;transition:all .15s';
+      html += '<button class="tp-btn" data-val="all" onclick="setTenurePill(\'all\')" style="' + tpStyle + ';background:#002C2A;color:#fff;border-color:#002C2A">Both</button>';
+      html += '<button class="tp-btn" data-val="New Logo" onclick="setTenurePill(\'New Logo\')" style="' + tpStyle + ';background:#fff;color:#5e8885">New Logo</button>';
+      html += '<button class="tp-btn" data-val="Established Business" onclick="setTenurePill(\'Established Business\')" style="' + tpStyle + ';background:#fff;color:#5e8885">EB</button>';
       html += '</div></div>';
       return;
     }
@@ -2353,6 +2354,7 @@ function setTenurePill(val) {
     const active = b.dataset.val === val;
     b.style.background = active ? '#002C2A' : '#fff';
     b.style.color = active ? '#fff' : '#5e8885';
+    b.style.borderColor = active ? '#002C2A' : '#c8dbd9';
   });
   renderCA();
 }
@@ -2366,6 +2368,7 @@ function caResetFilters() {
     const active = b.dataset.val === 'all';
     b.style.background = active ? '#002C2A' : '#fff';
     b.style.color = active ? '#fff' : '#5e8885';
+    b.style.borderColor = active ? '#002C2A' : '#c8dbd9';
   });
   renderCA();
 }

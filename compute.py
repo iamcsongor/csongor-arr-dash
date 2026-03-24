@@ -147,6 +147,7 @@ def read_accounts(wb):
             'eoq4_b2': safe_float(row[25]) if len(row) > 25 else 0,    # Z = EoQ4 2025 ARR B2
             'tam_type': safe_str(row[6]),     # G = TAM Type
             'account_cohort': safe_str(row[46]) if len(row) > 46 else '',  # AU = Account Cohort
+            'testing_target_2026': safe_float(row[47]) if len(row) > 47 else 0,  # AV = 2026 Testing Rev Target
         }
         acc_casesafe_to_up[acc_id] = up_id
         if len(acc_id) >= 15:
@@ -1065,7 +1066,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'fy24': round(fy24, 2),
             'fy25': round(fy25, 2),
             'fc25': 0,
-            'target26': 0,
+            'target26': round(sum((accounts.get(aid, {}).get('testing_target_2026', 0) or 0) for aid in acc_ids), 2),
             'perf_quad': perf_quad,
             'rev_gap': 0,
             'ly_vs_ty': round((tytd / lytd - 1) * 100, 1) if lytd > 0 else (100.0 if tytd > 0 else 0),
