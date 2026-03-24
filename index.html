@@ -2441,14 +2441,14 @@ function renderCASummary(rows) {
   const yoyCol = net >= 0 ? '#008a73' : '#a0001e';
 
   el.innerHTML =
-    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted) for the same YTD period last year, across filtered UPs.') + '<div class="ca-k-label">LYTD Revenue</div><div class="ca-k-val">' + fmtEur(lytd) + '</div><div class="ca-k-sub">Same period last year</div></div>' +
-    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue year-to-date this year. % shows YoY change vs LYTD.') + '<div class="ca-k-label">TYTD Revenue</div><div class="ca-k-val">' + fmtEur(tytd) + '</div><div class="ca-k-sub"><span style="font-weight:700;color:' + yoyCol + '">' + (net >= 0 ? '+' : '') + yoyPct + '%</span> vs LYTD</div></div>' +
+    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted to EUR) for the same YTD period last year, across filtered UPs. Does not include ARR.') + '<div class="ca-k-label">LYTD Testing Revenue</div><div class="ca-k-val">' + fmtEur(lytd) + '</div><div class="ca-k-sub">Same period last year</div></div>' +
+    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted to EUR) year-to-date this year. % shows YoY change vs LYTD. Does not include ARR.') + '<div class="ca-k-label">TYTD Testing Revenue</div><div class="ca-k-val">' + fmtEur(tytd) + '</div><div class="ca-k-sub"><span style="font-weight:700;color:' + yoyCol + '">' + (net >= 0 ? '+' : '') + yoyPct + '%</span> vs LYTD</div></div>' +
     (function(){
       var maxBar = Math.max(tytd, expectedPace, 1);
       var actualPctW = (tytd / maxBar * 100).toFixed(1);
       var expectedPctW = (expectedPace / maxBar * 100).toFixed(1);
-      return '<div class="ca-kpi">' + caKpiTip('Pacing shows if TYTD revenue is on track vs the annual target, pro-rated by days elapsed (' + daysPassed + '/' + daysInYear + ' days). 100% = exactly on pace.') +
-        '<div class="ca-k-label">Pacing</div>' +
+      return '<div class="ca-kpi">' + caKpiTip('Testing revenue pacing: is TYTD testing revenue on track vs the annual testing target, pro-rated by days elapsed (' + daysPassed + '/' + daysInYear + ' days). 100% = exactly on pace. Does not include ARR.') +
+        '<div class="ca-k-label">Testing Pacing</div>' +
         '<div class="ca-k-val" style="color:' + pacingCol + '">' + pacingPct + '%</div>' +
         '<div class="pacing-bars">' +
           '<div class="pacing-row"><div class="pacing-row-label">Actual</div><div class="pacing-row-track"><div class="pacing-row-fill" style="width:' + actualPctW + '%;background:' + pacingCol + '"></div></div><div class="pacing-row-val" style="color:' + pacingCol + '">' + fmtShort(tytd) + '</div></div>' +
