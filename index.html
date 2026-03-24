@@ -2767,37 +2767,26 @@ function renderCATable(rows) {
     { key: 'industry', label: 'Industry', cls: 'ca-dim', grp: 'Identity' },
     { key: 'status', label: 'Status', cls: '', grp: 'Status' },
     { key: 'tenure', label: 'Tenure', cls: 'ca-dim', grp: 'Status', info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' },
-    { key: 'perf_quad', label: 'Perf', cls: '', grp: 'Status', fmt: 'perf' },
+    { key: 'perf_quad', label: 'Perf', cls: '', grp: 'Status', fmt: 'tbc' },
     { key: 'activity', label: 'Activity', cls: '', grp: 'Status', fmt: 'activity' },
-    { key: 'lytd', label: 'LYTD', cls: 'num', grp: 'Revenue', fmt: 'eur' },
-    { key: 'tytd', label: 'TYTD', cls: 'num', grp: 'Revenue', fmt: 'eur' },
-    { key: 'ly_vs_ty', label: 'LY→TY', cls: 'num', grp: 'Revenue', fmt: 'pct_delta' },
-    { key: 'l12m', label: 'L12M', cls: 'num', grp: 'Revenue', fmt: 'eur' },
-    { key: 'l6m', label: 'L6M', cls: 'num', grp: 'Revenue', fmt: 'eur' },
-    { key: 'nrr', label: 'NRR', cls: 'num', grp: 'Revenue', fmt: 'pct' },
-    { key: 'fy24', label: 'FY24', cls: 'num', grp: 'Financials', fmt: 'eur' },
-    { key: 'fy25', label: 'FY25', cls: 'num', grp: 'Financials', fmt: 'eur' },
-    { key: 'fc25', label: 'FC25', cls: 'num', grp: 'Financials', fmt: 'eur' },
-    { key: 'target26', label: 'Tgt26', cls: 'num', grp: 'Financials', fmt: 'eur' },
-    { key: 'arr_calc', label: 'ARR', cls: 'num', grp: 'Financials', fmt: 'eur' },
-    { key: 'growth_cohort', label: 'Growth', cls: '', grp: 'Analysis' },
+    { key: 'lytd', label: 'LYTD', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'tytd', label: 'TYTD', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'ly_vs_ty', label: 'LY→TY', cls: 'num', grp: 'Testing', fmt: 'pct_delta' },
+    { key: 'l12m', label: 'L12M', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'l6m', label: 'L6M', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'fy24', label: 'FY24', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'fy25', label: 'FY25', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'target26', label: 'Tgt26', cls: 'num', grp: 'Testing', fmt: 'eur' },
+    { key: 'growth_cohort', label: 'Growth', cls: '', grp: 'Analysis', fmt: 'tbc' },
     { key: 'trend_6m', label: '6M Trend', cls: '', grp: 'Analysis', fmt: 'trend' },
     { key: 'trend_12m', label: '12M Trend', cls: '', grp: 'Analysis', fmt: 'trend' },
-    { key: 'velocity', label: 'Velocity', cls: 'num', grp: 'Analysis', fmt: 'num2' },
-    { key: 'momentum', label: 'Momentum', cls: 'num', grp: 'Analysis', fmt: 'num2' },
-    { key: 'score_rank', label: 'Score', cls: 'num', grp: 'Analysis', fmt: 'bar' },
     { key: 'l12m_avg', label: '12M Avg', cls: 'num', grp: 'Averages', fmt: 'eur' },
     { key: 'l6m_avg', label: '6M Avg', cls: 'num', grp: 'Averages', fmt: 'eur' },
     { key: 'ratio_12v6', label: '12v6', cls: 'num', grp: 'Averages', fmt: 'pct' },
     { key: 'active_months', label: 'Actv Mo', cls: 'num', grp: 'Activity', fmt: 'int' },
     { key: 'frequency', label: 'Freq', cls: 'num', grp: 'Activity', fmt: 'pct' },
     { key: 'months_since_last', label: 'Since Last', cls: 'num', grp: 'Activity', fmt: 'int' },
-    { key: 'lic_ytd', label: 'Lic YTD', cls: 'num', grp: 'Rev Split', fmt: 'eur' },
-    { key: 'cred_ytd', label: 'Cred YTD', cls: 'num', grp: 'Rev Split', fmt: 'eur' },
-    { key: 'ms_ytd', label: 'MS YTD', cls: 'num', grp: 'Rev Split', fmt: 'eur' },
-    { key: 'test_ytd', label: 'Test YTD', cls: 'num', grp: 'Rev Split', fmt: 'eur' },
-    { key: 'credit_bal', label: 'Credit Bal', cls: 'num', grp: 'Rev Split', fmt: 'eur' },
-    { key: 'pending', label: 'Pending', cls: 'num', grp: 'Rev Split', fmt: 'eur' }
+    { key: 'credit_bal', label: 'Credit Bal', cls: 'num', grp: 'Activity', fmt: 'eur' }
   ];
 
   // Group headers row
@@ -2871,9 +2860,8 @@ function renderCATable(rows) {
         content = '<span class="ca-activity">' + (v || '—') + '</span>';
       } else if (c.fmt === 'perf') {
         content = '<span class="ca-perf">' + (v || '—') + '</span>';
-      } else if (c.fmt === 'bar') {
-        const barPct = maxScore ? ((vn || 0) / maxScore * 100) : 0;
-        content = (vn != null ? vn.toFixed(0) : '—') + ' <span class="ca-bar purple" style="width:' + barPct + 'px"></span>';
+      } else if (c.fmt === 'tbc') {
+        content = '<span style="color:#bcc8c6;font-size:10px;font-style:italic">tbc</span>';
       } else if (c.key === 'account_cohort' && v) {
         const acCol = v === 'Non-ICP' ? '#8a9a98' : v === 'Majors' ? '#7B61FF' : v.startsWith('ICP') ? '#0D9B7A' : '#5e8885';
         const acBg = v === 'Non-ICP' ? '#eef1f0' : v === 'Majors' ? '#ede8ff' : v.startsWith('ICP') ? '#e4f5f0' : '#e8efed';
