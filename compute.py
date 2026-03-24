@@ -15,13 +15,8 @@ from openpyxl import load_workbook
 import requests
 
 
-# SharePoint URL (new working file)
-SOURCE_URL = (
-    "https://wiseandsallycom-my.sharepoint.com/:x:/g/personal/"
-    "csongor_doma_cambri_io/"
-    "IQCtH2LmrI_CTL0I5sd7-TY-AZtRdW7nZn-vjGaH1tBhEf4"
-    "?e=EwShbU&download=1"
-)
+# SharePoint URL from environment (set via GitHub Actions secret)
+SOURCE_URL = os.environ.get("SP_URL", "")
 
 
 def download_workbook(url, name):
