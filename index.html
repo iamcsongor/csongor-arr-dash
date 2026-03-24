@@ -264,6 +264,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .kpi-info:hover + .kpi-info-tip, .kpi-info-tip:hover { display: block; }
 .kpi-info-tip { display: none; position: absolute; top: 28px; right: 4px; background: #002C2A; color: #fff; font-size: 11px; padding: 8px 12px; border-radius: 8px; width: 210px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.2); line-height: 1.4; text-align: left; font-weight: 400; }
 .col-info-wrap { position: relative; display: inline-block; vertical-align: middle; margin-left: 3px; }
+th.col-info-wrap { display: table-cell; }
 .col-info-i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #d0dbd9; color: #3d5c5a; font-size: 9px; font-weight: 700; line-height: 14px; text-align: center; cursor: default; font-style: italic; font-family: Georgia, serif; }
 .col-info-tip { display: none; position: absolute; top: 22px; left: 50%; transform: translateX(-50%); background: #002C2A; color: #fff; font-size: 11px; font-weight: 400; font-style: normal; padding: 8px 12px; border-radius: 8px; width: 220px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,.3); line-height: 1.4; text-align: left; white-space: normal; pointer-events: none; }
 .col-info-wrap:hover .col-info-tip { display: block; }
@@ -284,7 +285,13 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .ca-panel.active { display: block; }
 
 .ca-filters { background: #fff; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-.ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 140px; flex: 1 1 140px; }
+.ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 120px; flex: 1 1 120px; }
+.ca-filter-toggle { display: flex; align-items: center; gap: 6px; align-self: flex-end; padding: 7px 0; margin-left: auto; flex-shrink: 0; }
+.ca-filter-toggle label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; cursor: pointer; white-space: nowrap; }
+.ca-toggle-btn { width: 36px; height: 20px; border-radius: 10px; border: 1.5px solid #c8dbd9; background: #eef3f2; position: relative; cursor: pointer; transition: all .2s; flex-shrink: 0; }
+.ca-toggle-btn.on { background: #002C2A; border-color: #002C2A; }
+.ca-toggle-btn::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.ca-toggle-btn.on::after { transform: translateX(16px); }
 .ca-filter-grp label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; }
 .ca-filter-grp select { padding: 7px 10px; border: 1.5px solid #c8dbd9; border-radius: 8px; font-size: 13px; background: #fff; font-family: inherit; }
 .ca-filter-grp select:focus { outline: none; border-color: #5CECC6; }
@@ -404,8 +411,9 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
   .ceo-kpi-row { grid-template-columns: 1fr 1fr; }
   .ca-summary { grid-template-columns: 1fr 1fr; }
   .ca-chart-row { grid-template-columns: 1fr; }
-  .ca-filters { flex-direction: column; }
+  .ca-filters { flex-direction: column; gap: 8px; }
   .ca-filter-grp { min-width: 100%; flex: 1 1 100%; }
+  .ca-filter-toggle { margin-left: 0; align-self: flex-start; }
   .pill-grp { flex-wrap: wrap; }
   .header { flex-direction: column; gap: 12px; align-items: flex-start; }
 }
@@ -2257,12 +2265,11 @@ let caSortAsc = true;
 function initCA() {
   const f = document.getElementById('caFilters');
   const dims = [
-    { key: 'status', label: 'Status', pill: true, options: ['Active', 'Churned', 'Inactive'], info: 'Active = hierarchy live ARR > 0 or testing in L12M. Churned = ex-customer or no testing + no ARR. Inactive = fallback.' },
     { key: 'csm', label: 'CSM' },
     { key: 'cls', label: 'Class' },
     { key: 'industry', label: 'Industry' },
     { key: 'account_cohort', label: 'Account Cohort' },
-    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'], info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' }
+    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'] }
   ];
   let html = '';
   dims.forEach(d => {
@@ -2291,6 +2298,7 @@ function initCA() {
     html += '</div></div></div>';
   });
   html += '<button class="ca-reset" onclick="caResetFilters()">Reset</button>';
+  html += '<div class="ca-filter-toggle"><div id="activeToggle" class="ca-toggle-btn" onclick="toggleActiveOnly()"></div><label onclick="toggleActiveOnly()">Active only</label></div>';
   f.innerHTML = html;
   // close dropdowns when clicking outside
   document.addEventListener('click', function(e) {
@@ -2371,8 +2379,16 @@ function setPillFilter(key, val) {
   renderCA();
 }
 
+function toggleActiveOnly() {
+  const btn = document.getElementById('activeToggle');
+  const isOn = btn.classList.toggle('on');
+  caFilters.status = isOn ? ['Active'] : [];
+  renderCA();
+}
+
 function caResetFilters() {
   caFilters = { csm: [], cls: [], industry: [], account_cohort: [], tenure: [], status: [] };
+  document.getElementById('activeToggle').classList.remove('on');
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
   // Reset all pill toggles
@@ -2772,34 +2788,33 @@ function renderCATable(rows) {
 
   // Define column groups
   const cols = [
-    { key: 'up', label: 'Customer', cls: '', grp: 'Identity' },
-    { key: 'csm', label: 'CSM', cls: 'ca-dim', grp: 'Identity' },
-    { key: 'owner', label: 'Owner', cls: 'ca-dim', grp: 'Identity' },
-    { key: 'account_cohort', label: 'Cohort', cls: 'ca-dim', grp: 'Identity' },
-    { key: 'industry', label: 'Industry', cls: 'ca-dim', grp: 'Identity' },
-    { key: 'status', label: 'Status', cls: '', grp: 'Status' },
+    { key: 'up', label: 'Customer', cls: '', grp: 'Identity', info: 'Ultimate Parent account name from Salesforce hierarchy.' },
+    { key: 'csm', label: 'CSM', cls: 'ca-dim', grp: 'Identity', info: 'Customer Success Manager assigned to this account.' },
+    { key: 'account_cohort', label: 'Cohort', cls: 'ca-dim', grp: 'Identity', info: 'Account Cohort: ICP segment (UK&I, US, Nordics, RoEU, RoW), Majors, or Non-ICP.' },
+    { key: 'industry', label: 'Industry', cls: 'ca-dim', grp: 'Identity', info: 'Industry classification from the account record.' },
+    { key: 'status', label: 'Status', cls: '', grp: 'Status', info: 'Active = live ARR or testing in L12M. Churned = ex-customer or no testing + no ARR. Inactive = fallback.' },
     { key: 'tenure', label: 'Tenure', cls: 'ca-dim', grp: 'Status', info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' },
-    { key: 'perf_quad', label: 'Perf', cls: '', grp: 'Status', fmt: 'tbc' },
-    { key: 'activity', label: 'Activity', cls: '', grp: 'Status', fmt: 'activity' },
-    { key: 'lytd', label: 'LYTD', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'tytd', label: 'TYTD', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'ly_vs_ty', label: 'LY→TY', cls: 'num', grp: 'Testing', fmt: 'pct_delta' },
-    { key: 'l12m', label: 'L12M', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'l6m', label: 'L6M', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'fy24', label: 'FY24', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'fy25', label: 'FY25', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'pacing', label: 'Pacing', cls: 'num', grp: 'Testing', fmt: 'pacing' },
-    { key: 'target26', label: 'Tgt26', cls: 'num', grp: 'Testing', fmt: 'tgt26' },
-    { key: 'credit_bal', label: 'Credit Bal', cls: 'num', grp: 'Testing', fmt: 'eur' },
-    { key: 'growth_cohort', label: 'Growth', cls: '', grp: 'Analysis', fmt: 'tbc' },
-    { key: 'trend_6m', label: '6M Trend', cls: '', grp: 'Analysis', fmt: 'trend' },
-    { key: 'trend_12m', label: '12M Trend', cls: '', grp: 'Analysis', fmt: 'trend' },
-    { key: 'l12m_avg', label: '12M Avg', cls: 'num', grp: 'Averages', fmt: 'eur' },
-    { key: 'l6m_avg', label: '6M Avg', cls: 'num', grp: 'Averages', fmt: 'eur' },
-    { key: 'ratio_12v6', label: '12v6', cls: 'num', grp: 'Averages', fmt: 'pct' },
-    { key: 'active_months', label: 'Actv Mo', cls: 'num', grp: 'Activity', fmt: 'int' },
-    { key: 'frequency', label: 'Freq', cls: 'num', grp: 'Activity', fmt: 'pct' },
-    { key: 'months_since_last', label: 'Since Last', cls: 'num', grp: 'Activity', fmt: 'int' }
+    { key: 'perf_quad', label: 'Perf', cls: '', grp: 'Status', fmt: 'tbc', info: 'Performance quadrant — to be confirmed.' },
+    { key: 'activity', label: 'Activity', cls: '', grp: 'Status', fmt: 'activity', info: 'Active = tested in last 2 months. Recent = last 2–6 months. Dormant = over 6 months.' },
+    { key: 'lytd', label: 'LYTD', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'Last Year To Date: testing revenue for the same period last year.' },
+    { key: 'tytd', label: 'TYTD', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'This Year To Date: testing revenue so far this year.' },
+    { key: 'ly_vs_ty', label: 'LY→TY', cls: 'num', grp: 'Testing', fmt: 'pct_delta', info: 'Year-over-year % change: (TYTD / LYTD − 1) × 100.' },
+    { key: 'l12m', label: 'L12M', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'Last 12 Months: rolling 12-month testing revenue.' },
+    { key: 'l6m', label: 'L6M', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'Last 6 Months: rolling 6-month testing revenue.' },
+    { key: 'fy24', label: 'FY24', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'Full Year 2024 testing revenue.' },
+    { key: 'fy25', label: 'FY25', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'Full Year 2025 testing revenue.' },
+    { key: 'pacing', label: 'Pacing', cls: 'num', grp: 'Testing', fmt: 'pacing', info: 'TYTD testing revenue vs pro-rated annual target. 100% = on pace.' },
+    { key: 'target26', label: 'Tgt26', cls: 'num', grp: 'Testing', fmt: 'tgt26', info: '2026 annual testing revenue target.' },
+    { key: 'credit_bal', label: 'Credit Bal', cls: 'num', grp: 'Testing', fmt: 'eur', info: 'Outstanding credit balance on the account.' },
+    { key: 'growth_cohort', label: 'Growth', cls: '', grp: 'Analysis', fmt: 'tbc', info: 'Growth cohort classification — to be confirmed.' },
+    { key: 'trend_6m', label: '6M Trend', cls: '', grp: 'Analysis', fmt: 'trend', info: 'Directional trend over the last 6 months (Up/Down/Flat).' },
+    { key: 'trend_12m', label: '12M Trend', cls: '', grp: 'Analysis', fmt: 'trend', info: 'Directional trend over the last 12 months (Up/Down/Flat).' },
+    { key: 'l12m_avg', label: '12M Avg', cls: 'num', grp: 'Averages', fmt: 'eur', info: 'Average monthly testing revenue over last 12 months.' },
+    { key: 'l6m_avg', label: '6M Avg', cls: 'num', grp: 'Averages', fmt: 'eur', info: 'Average monthly testing revenue over last 6 months.' },
+    { key: 'ratio_12v6', label: '12v6', cls: 'num', grp: 'Averages', fmt: 'pct', info: '6M average ÷ 12M average. >1 = accelerating, <1 = decelerating.' },
+    { key: 'active_months', label: 'Actv Mo', cls: 'num', grp: 'Activity', fmt: 'int', info: 'Number of months with testing revenue in the data window.' },
+    { key: 'frequency', label: 'Freq', cls: 'num', grp: 'Activity', fmt: 'pct', info: 'Frequency: proportion of months with testing revenue.' },
+    { key: 'months_since_last', label: 'Since Last', cls: 'num', grp: 'Activity', fmt: 'int', info: 'Months since last testing revenue was recorded.' }
   ];
 
   // Group headers row
@@ -2824,8 +2839,9 @@ function renderCATable(rows) {
   let colHdr = '<tr>';
   cols.forEach(c => {
     const arrow = caSortCol === c.key ? (caSortAsc ? ' ▲' : ' ▼') : '';
-    const colInfo = c.info ? '<span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + c.info + '</span></span>' : '';
-    colHdr += '<th class="' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '">' + c.label + colInfo + arrow + '</th>';
+    const tipAttr = c.info ? ' style="position:relative"' : '';
+    const tipHtml = c.info ? '<span class="col-info-tip" style="left:0;transform:none">' + c.info + '</span>' : '';
+    colHdr += '<th class="col-info-wrap ' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '"' + tipAttr + '>' + c.label + arrow + tipHtml + '</th>';
   });
   colHdr += '</tr>';
 
