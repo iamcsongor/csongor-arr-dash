@@ -452,10 +452,10 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
         <canvas id="groupChart" style="width:100%;height:340px"></canvas>
         <div class="ceo-legend" id="groupLegend"></div>
       </div>
-      <div class="ceo-chart-card" style="display:flex;flex-direction:column;justify-content:center">
+      <div class="ceo-chart-card" style="display:flex;flex-direction:column">
         <h3 style="margin:0 0 4px 0">Tenure Split</h3>
-        <div class="subtitle" style="margin-bottom:16px">YTD testing revenue by customer tenure</div>
-        <div id="tenureCard"></div>
+        <div class="subtitle" style="margin-bottom:8px">LYTD vs TYTD by customer tenure</div>
+        <canvas id="tenureChart" style="width:100%;flex:1;min-height:280px"></canvas>
       </div>
     </div>
   </div>
@@ -1656,34 +1656,126 @@ function drawGroupChart() {
     '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.55);border-radius:2px;vertical-align:middle;margin-right:4px"></span>TYTD</span>' +
     '</div>';
 
-  // Tenure card
-  drawTenureCard();
+  // Tenure chart
+  drawTenureChart();
 }
 
-function drawTenureCard() {
-  const container = document.getElementById('tenureCard');
-  if (!container) return;
+function drawTenureChart() {
+  const canvas = document.getElementById('tenureChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
   const grouped = CEO.grouped_testing_rev;
   if (!grouped || !grouped.tenure) {
-    container.innerHTML = '<div style="color:#8aaba9;font-size:13px">No tenure data yet</div>';
+    ctx.fillStyle = '#8aaba9'; ctx.font = '13px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('No tenure data yet', W / 2, H / 2);
     return;
   }
+
   const entries = grouped.tenure;
-  let html = '';
-  entries.forEach(e => {
+  const n = entries.length;
+  if (n === 0) return;
+
+  const pad = { top: 10, right: 20, bottom: 10, left: 10 };
+  const chartH = H - pad.top - pad.bottom;
+  const chartW = W - pad.left - pad.right;
+
+  // Vertical layout: each tenure type gets a section
+  const sectionH = chartH / n;
+  const maxVal = Math.max(...entries.map(e => Math.max(e.tytd, e.lytd)), 1);
+
+  const colors = {
+    'Established Business': { ty: '#002C2A', ly: 'rgba(0,44,42,0.2)', accent: '#0D9B7A' },
+    'New Logo': { ty: '#7B61FF', ly: 'rgba(123,97,255,0.2)', accent: '#BA6DFB' },
+  };
+  const defaultCol = { ty: '#5e8885', ly: 'rgba(94,136,133,0.2)', accent: '#0D9B7A' };
+
+  entries.forEach((e, i) => {
+    const sy = pad.top + i * sectionH;
+    const c = colors[e.label] || defaultCol;
+    const barMaxW = chartW - 20;
+    const barH = 28;
+    const barGapY = 6;
+
+    // Label
+    ctx.fillStyle = '#5e8885';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(e.label.toUpperCase(), pad.left, sy + 16);
+
+    // LYTD bar
+    const lyBarW = Math.max((e.lytd / maxVal) * barMaxW, 2);
+    const lyBarY = sy + 26;
+    ctx.fillStyle = c.ly;
+    ctx.beginPath();
+    ctx.roundRect(pad.left, lyBarY, lyBarW, barH, 6);
+    ctx.fill();
+    // LYTD value inside or after bar
+    ctx.fillStyle = '#8aaba9';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('€' + Math.round(e.lytd / 1000) + 'k', pad.left + lyBarW + 8, lyBarY + barH / 2 + 4);
+
+    // TYTD bar
+    const tyBarW = Math.max((e.tytd / maxVal) * barMaxW, 2);
+    const tyBarY = lyBarY + barH + barGapY;
+    ctx.fillStyle = c.ty;
+    ctx.beginPath();
+    ctx.roundRect(pad.left, tyBarY, tyBarW, barH, 6);
+    ctx.fill();
+    // TYTD value
+    ctx.fillStyle = '#002C2A';
+    ctx.font = 'bold 13px Arial';
+    ctx.fillText('€' + Math.round(e.tytd / 1000) + 'k', pad.left + tyBarW + 8, tyBarY + barH / 2 + 5);
+
+    // Growth badge at end of section
     const g = e.growth;
+    const gText = (g > 0 ? '+' : '') + Math.round(g) + '%';
     const gCol = g >= 0 ? '#0D9B7A' : '#e04070';
-    const gBg = g >= 0 ? 'rgba(13,155,122,0.1)' : 'rgba(250,83,140,0.1)';
-    html += '<div style="background:#f5f8f7;border-radius:12px;padding:16px;margin-bottom:12px">';
-    html += '<div style="font-size:12px;font-weight:600;color:#5e8885;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">' + e.label + '</div>';
-    html += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">';
-    html += '<div style="font-size:22px;font-weight:800;color:#002C2A">€' + Math.round(e.tytd / 1000).toLocaleString() + 'k</div>';
-    html += '<div style="font-size:12px;font-weight:700;color:' + gCol + ';background:' + gBg + ';padding:3px 8px;border-radius:10px">' + (g > 0 ? '+' : '') + Math.round(g) + '%</div>';
-    html += '</div>';
-    html += '<div style="font-size:11px;color:#8aaba9">LYTD: €' + Math.round(e.lytd / 1000).toLocaleString() + 'k</div>';
-    html += '</div>';
+    const gBg = g >= 0 ? 'rgba(13,155,122,0.12)' : 'rgba(250,83,140,0.12)';
+    ctx.font = 'bold 14px Arial';
+    const tw = ctx.measureText(gText).width;
+    const pillW = tw + 16, pillH = 26;
+    const pillX = chartW - pillW + pad.left - 4;
+    const pillY = sy + sectionH / 2 - pillH / 2 + 8;
+    ctx.fillStyle = gBg;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, 13);
+    ctx.fill();
+    ctx.fillStyle = gCol;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(gText, pillX + pillW / 2, pillY + pillH / 2);
+    ctx.textBaseline = 'alphabetic';
+
+    // Divider between sections
+    if (i < n - 1) {
+      ctx.strokeStyle = '#e8efed';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, sy + sectionH - 4);
+      ctx.lineTo(pad.left + chartW, sy + sectionH - 4);
+      ctx.stroke();
+    }
   });
-  container.innerHTML = html;
+
+  // Tiny legend at bottom
+  ctx.font = '10px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#8aaba9';
+  const legY = H - 4;
+  ctx.fillRect(pad.left, legY - 6, 10, 6);
+  ctx.fillText('LYTD', pad.left + 14, legY);
+  ctx.fillStyle = '#002C2A';
+  ctx.fillRect(pad.left + 50, legY - 6, 10, 6);
+  ctx.fillStyle = '#5e8885';
+  ctx.fillText('TYTD', pad.left + 64, legY);
 }
 
 // ── MoM Chart (Testing Revenue Jan-Dec, bars + lines) ──
