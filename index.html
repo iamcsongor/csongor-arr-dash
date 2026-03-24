@@ -284,7 +284,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .ca-panel.active { display: block; }
 
 .ca-filters { background: #fff; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-.ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
+.ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 140px; flex: 1 1 140px; }
 .ca-filter-grp label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; }
 .ca-filter-grp select { padding: 7px 10px; border: 1.5px solid #c8dbd9; border-radius: 8px; font-size: 13px; background: #fff; font-family: inherit; }
 .ca-filter-grp select:focus { outline: none; border-color: #5CECC6; }
@@ -405,6 +405,8 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
   .ca-summary { grid-template-columns: 1fr 1fr; }
   .ca-chart-row { grid-template-columns: 1fr; }
   .ca-filters { flex-direction: column; }
+  .ca-filter-grp { min-width: 100%; flex: 1 1 100%; }
+  .pill-grp { flex-wrap: wrap; }
   .header { flex-direction: column; gap: 12px; align-items: flex-start; }
 }
 </style>
@@ -2248,37 +2250,36 @@ function drawCumChart() {
 }
 
 // ── Customer Analysis ──
-let caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [], tenure: [] };
+let caFilters = { csm: [], cls: [], industry: [], account_cohort: [], tenure: [], status: [] };
 let caSortCol = null;
 let caSortAsc = true;
 
 function initCA() {
   const f = document.getElementById('caFilters');
   const dims = [
+    { key: 'status', label: 'Status', pill: true, options: ['Active', 'Churned', 'Inactive'], info: 'Active = hierarchy live ARR > 0 or testing in L12M. Churned = ex-customer or no testing + no ARR. Inactive = fallback.' },
     { key: 'csm', label: 'CSM' },
-    { key: 'owner', label: 'Account Owner' },
     { key: 'cls', label: 'Class' },
     { key: 'industry', label: 'Industry' },
     { key: 'account_cohort', label: 'Account Cohort' },
-    { key: 'tenure', label: 'Tenure', info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' },
-    { key: 'up', label: 'UP Name' }
+    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'], info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' }
   ];
   let html = '';
   dims.forEach(d => {
-    if (d.key === 'tenure') {
-      // Render as pill toggle instead of dropdown
-      const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
+    const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
+    if (d.pill) {
+      const tpStyle = 'padding:6px 12px;border-radius:16px;border:1px solid #c8dbd9;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;transition:all .15s';
       html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
-      html += '<div id="tenurePills" style="display:flex;gap:4px">';
-      var tpStyle = 'padding:6px 12px;border-radius:16px;border:1px solid #c8dbd9;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;transition:all .15s';
-      html += '<button class="tp-btn" data-val="all" onclick="setTenurePill(\'all\')" style="' + tpStyle + ';background:#002C2A;color:#fff;border-color:#002C2A">Both</button>';
-      html += '<button class="tp-btn" data-val="New Logo" onclick="setTenurePill(\'New Logo\')" style="' + tpStyle + ';background:#fff;color:#5e8885">New Logo</button>';
-      html += '<button class="tp-btn" data-val="Established Business" onclick="setTenurePill(\'Established Business\')" style="' + tpStyle + ';background:#fff;color:#5e8885">EB</button>';
+      html += '<div class="pill-grp" data-key="' + d.key + '" style="display:flex;gap:4px">';
+      html += '<button class="tp-btn" data-val="all" onclick="setPillFilter(\'' + d.key + '\',\'all\')" style="' + tpStyle + ';background:#002C2A;color:#fff;border-color:#002C2A">All</button>';
+      d.options.forEach((opt, i) => {
+        const lbl = d.optLabels ? d.optLabels[i] : opt;
+        html += '<button class="tp-btn" data-val="' + opt + '" onclick="setPillFilter(\'' + d.key + '\',\'' + opt.replace(/'/g,"\\'") + '\')" style="' + tpStyle + ';background:#fff;color:#5e8885">' + lbl + '</button>';
+      });
       html += '</div></div>';
       return;
     }
     const vals = [...new Set(BCL.rows.map(r => r[d.key]).filter(Boolean))].sort();
-    const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
     html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
     html += '<div class="ca-ms" data-key="' + d.key + '">';
     html += '<div class="ca-ms-trigger" onclick="caToggleDD(this)"><span class="ca-ms-ph">All</span></div>';
@@ -2355,13 +2356,13 @@ function caUpdateTrigger(ms) {
   }
 }
 
-function setTenurePill(val) {
+function setPillFilter(key, val) {
   if (val === 'all') {
-    caFilters.tenure = [];
+    caFilters[key] = [];
   } else {
-    caFilters.tenure = [val];
+    caFilters[key] = [val];
   }
-  document.querySelectorAll('#tenurePills .tp-btn').forEach(b => {
+  document.querySelectorAll('.pill-grp[data-key="' + key + '"] .tp-btn').forEach(b => {
     const active = b.dataset.val === val;
     b.style.background = active ? '#002C2A' : '#fff';
     b.style.color = active ? '#fff' : '#5e8885';
@@ -2371,11 +2372,11 @@ function setTenurePill(val) {
 }
 
 function caResetFilters() {
-  caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [], tenure: [] };
+  caFilters = { csm: [], cls: [], industry: [], account_cohort: [], tenure: [], status: [] };
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
-  // Reset tenure pills
-  document.querySelectorAll('#tenurePills .tp-btn').forEach(b => {
+  // Reset all pill toggles
+  document.querySelectorAll('.pill-grp .tp-btn').forEach(b => {
     const active = b.dataset.val === 'all';
     b.style.background = active ? '#002C2A' : '#fff';
     b.style.color = active ? '#fff' : '#5e8885';
@@ -2386,13 +2387,12 @@ function caResetFilters() {
 
 function getFilteredBCL() {
   return BCL.rows.filter(r => {
+    if (caFilters.status.length && !caFilters.status.includes(r.status)) return false;
     if (caFilters.csm.length && !caFilters.csm.includes(r.csm)) return false;
-    if (caFilters.owner.length && !caFilters.owner.includes(r.owner)) return false;
     if (caFilters.cls.length && !caFilters.cls.includes(r.cls)) return false;
     if (caFilters.industry.length && !caFilters.industry.includes(r.industry)) return false;
     if (caFilters.account_cohort.length && !caFilters.account_cohort.includes(r.account_cohort)) return false;
     if (caFilters.tenure.length && !caFilters.tenure.includes(r.tenure)) return false;
-    if (caFilters.up.length && !caFilters.up.includes(r.up)) return false;
     return true;
   });
 }
@@ -2920,7 +2920,20 @@ function renderCATable(rows) {
     body += '</tr>';
   });
 
-  tbl.innerHTML = '<thead>' + grpHdr + colHdr + '</thead><tbody>' + body + '</tbody>';
+  // Subtotals row
+  const sumKeys = new Set(['lytd','tytd','l12m','l6m','fy24','fy25','target26','credit_bal']);
+  let foot = '<tr style="background:#f0f6f5;font-weight:700;border-top:2px solid #c8dbd9">';
+  cols.forEach((c, ci) => {
+    if (ci === 0) { foot += '<td style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#5e8885">Totals</td>'; return; }
+    if (sumKeys.has(c.key)) {
+      const total = sorted.reduce((s, r) => s + (r[c.key] || 0), 0);
+      foot += '<td class="num" style="padding:8px 10px;font-size:12px;font-weight:700">€' + fmtNum(total) + '</td>';
+    } else {
+      foot += '<td></td>';
+    }
+  });
+  foot += '</tr>';
+  tbl.innerHTML = '<thead>' + grpHdr + colHdr + '</thead><tbody>' + body + foot + '</tbody>';
   // Attach sort handlers via event delegation
   tbl.querySelectorAll('th[data-col]').forEach(function(th) {
     th.addEventListener('click', function() { caSort(this.getAttribute('data-col')); });

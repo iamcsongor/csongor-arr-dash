@@ -1143,7 +1143,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'csm': '', 'owner': '', 'cls': '', 'industry': '',
             'up': up_name,
             'monthly': monthly,
-            'status': 'Testing Only',
+            'status': 'Active' if tytd > 0 else 'Inactive',
             'l12m': round(sum(test_data.get(m, 0) for m in month_headers[-12:]), 2),
             'l6m': round(sum(test_data.get(m, 0) for m in month_headers[-6:]), 2),
             'lytd': round(lytd, 2),
