@@ -928,6 +928,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
         industry = up_info.get('industry', '') or ''
         tam_type = up_info.get('tam_type', '') or ''
         account_cohort = up_info.get('account_cohort', '') or ''
+        acc_type = up_info.get('type', '') or ''
         for aid in acc_ids:
             a = accounts.get(aid, {})
             if a.get('csm') and not csm:
@@ -940,6 +941,8 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
                 tam_type = a['tam_type']
             if a.get('account_cohort') and not account_cohort:
                 account_cohort = a['account_cohort']
+            if a.get('type') and not acc_type:
+                acc_type = a['type']
 
         # Monthly testing revenue
         monthly = [round(up_monthly_rev.get(up_name, {}).get(m, 0), 2) for m in month_headers]
@@ -1004,14 +1007,13 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
         score_rank = round(tytd / 1000, 1) if tytd else 0
 
         # Status
-        if total_arr > 0 and tytd > 0:
-            status = 'Active'
-        elif total_arr > 0:
-            status = 'ARR Only'
-        elif tytd > 0:
-            status = 'Testing Only'
-        elif months_since_last > 6:
+        hierarchy_live_arr = up_info.get('hierarchy_total_arr', 0) or 0
+        is_ex_customer = acc_type.lower().strip() == 'ex-customer'
+        has_l12m_testing = l12m > 0
+        if is_ex_customer or (not has_l12m_testing and hierarchy_live_arr <= 0):
             status = 'Churned'
+        elif hierarchy_live_arr > 0 or has_l12m_testing:
+            status = 'Active'
         else:
             status = 'Inactive'
 
