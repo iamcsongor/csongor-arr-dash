@@ -263,6 +263,10 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .kpi-info { position: absolute; top: 8px; right: 10px; width: 16px; height: 16px; border-radius: 50%; background: #e8efed; color: #5e8885; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; cursor: default; font-style: italic; font-family: Georgia, serif; }
 .kpi-info:hover + .kpi-info-tip, .kpi-info-tip:hover { display: block; }
 .kpi-info-tip { display: none; position: absolute; top: 28px; right: 4px; background: #002C2A; color: #fff; font-size: 11px; padding: 8px 12px; border-radius: 8px; width: 210px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.2); line-height: 1.4; text-align: left; font-weight: 400; }
+.col-info-wrap { position: relative; display: inline-block; vertical-align: middle; margin-left: 3px; }
+.col-info-i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #d0dbd9; color: #3d5c5a; font-size: 9px; font-weight: 700; line-height: 14px; text-align: center; cursor: default; font-style: italic; font-family: Georgia, serif; }
+.col-info-tip { display: none; position: absolute; top: 22px; left: 50%; transform: translateX(-50%); background: #002C2A; color: #fff; font-size: 11px; font-weight: 400; font-style: normal; padding: 8px 12px; border-radius: 8px; width: 220px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,.3); line-height: 1.4; text-align: left; white-space: normal; pointer-events: none; }
+.col-info-wrap:hover .col-info-tip { display: block; }
 
 .ceo-chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
 .ceo-chart-card { background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 1px 4px rgba(0,44,42,.08); border: 1px solid #e8efed; }
@@ -2185,8 +2189,8 @@ function initCA() {
   let html = '';
   dims.forEach(d => {
     const vals = [...new Set(BCL.rows.map(r => r[d.key]).filter(Boolean))].sort();
-    const infoHtml = d.info ? ' <span class="kpi-info" style="position:relative;display:inline-block;vertical-align:middle;margin-left:3px">i</span><div class="kpi-info-tip" style="top:18px;right:auto;left:0">' + d.info + '</div>' : '';
-    html += '<div class="ca-filter-grp"><label style="position:relative">' + d.label + infoHtml + '</label>';
+    const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
+    html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
     html += '<div class="ca-ms" data-key="' + d.key + '">';
     html += '<div class="ca-ms-trigger" onclick="caToggleDD(this)"><span class="ca-ms-ph">All</span></div>';
     html += '<div class="ca-ms-dd">';
@@ -2670,8 +2674,8 @@ function renderCATable(rows) {
   let colHdr = '<tr>';
   cols.forEach(c => {
     const arrow = caSortCol === c.key ? (caSortAsc ? ' ▲' : ' ▼') : '';
-    const colInfo = c.info ? ' <span class="kpi-info" style="position:relative;display:inline-block;vertical-align:middle;margin-left:2px;font-size:9px;width:14px;height:14px;line-height:14px">i</span><div class="kpi-info-tip" style="top:18px;right:auto;left:0;width:190px">' + c.info + '</div>' : '';
-    colHdr += '<th class="' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '" style="position:relative">' + c.label + colInfo + arrow + '</th>';
+    const colInfo = c.info ? '<span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + c.info + '</span></span>' : '';
+    colHdr += '<th class="' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '">' + c.label + colInfo + arrow + '</th>';
   });
   colHdr += '</tr>';
 
