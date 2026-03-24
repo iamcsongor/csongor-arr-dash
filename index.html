@@ -1482,6 +1482,7 @@ function initGroupChart() {
     { key: 'csm', label: 'CSM' },
     { key: 'country', label: 'Country' },
     { key: 'industry', label: 'Industry' },
+    { key: 'tenure', label: 'Tenure' },
   ];
   const container = document.getElementById('groupDimPills');
   container.innerHTML = dims.map(d =>
@@ -2166,7 +2167,7 @@ function drawCumChart() {
 }
 
 // ── Customer Analysis ──
-let caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [] };
+let caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [], tenure: [] };
 let caSortCol = null;
 let caSortAsc = true;
 
@@ -2178,12 +2179,14 @@ function initCA() {
     { key: 'cls', label: 'Class' },
     { key: 'industry', label: 'Industry' },
     { key: 'account_cohort', label: 'Account Cohort' },
+    { key: 'tenure', label: 'Tenure', info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' },
     { key: 'up', label: 'UP Name' }
   ];
   let html = '';
   dims.forEach(d => {
     const vals = [...new Set(BCL.rows.map(r => r[d.key]).filter(Boolean))].sort();
-    html += '<div class="ca-filter-grp"><label>' + d.label + '</label>';
+    const infoHtml = d.info ? ' <span class="kpi-info" style="position:relative;display:inline-block;vertical-align:middle;margin-left:3px">i</span><div class="kpi-info-tip" style="top:18px;right:auto;left:0">' + d.info + '</div>' : '';
+    html += '<div class="ca-filter-grp"><label style="position:relative">' + d.label + infoHtml + '</label>';
     html += '<div class="ca-ms" data-key="' + d.key + '">';
     html += '<div class="ca-ms-trigger" onclick="caToggleDD(this)"><span class="ca-ms-ph">All</span></div>';
     html += '<div class="ca-ms-dd">';
@@ -2260,7 +2263,7 @@ function caUpdateTrigger(ms) {
 }
 
 function caResetFilters() {
-  caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [] };
+  caFilters = { csm: [], owner: [], cls: [], industry: [], up: [], account_cohort: [], tenure: [] };
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
   renderCA();
@@ -2273,6 +2276,7 @@ function getFilteredBCL() {
     if (caFilters.cls.length && !caFilters.cls.includes(r.cls)) return false;
     if (caFilters.industry.length && !caFilters.industry.includes(r.industry)) return false;
     if (caFilters.account_cohort.length && !caFilters.account_cohort.includes(r.account_cohort)) return false;
+    if (caFilters.tenure.length && !caFilters.tenure.includes(r.tenure)) return false;
     if (caFilters.up.length && !caFilters.up.includes(r.up)) return false;
     return true;
   });
@@ -2610,7 +2614,7 @@ function renderCATable(rows) {
     { key: 'account_cohort', label: 'Cohort', cls: 'ca-dim', grp: 'Identity' },
     { key: 'industry', label: 'Industry', cls: 'ca-dim', grp: 'Identity' },
     { key: 'status', label: 'Status', cls: '', grp: 'Status' },
-    { key: 'tenure', label: 'Tenure', cls: 'ca-dim', grp: 'Status' },
+    { key: 'tenure', label: 'Tenure', cls: 'ca-dim', grp: 'Status', info: 'New Logo = first test within last 12 months. Established Business = first test older than 12 months.' },
     { key: 'perf_quad', label: 'Perf', cls: '', grp: 'Status', fmt: 'perf' },
     { key: 'activity', label: 'Activity', cls: '', grp: 'Status', fmt: 'activity' },
     { key: 'lytd', label: 'LYTD', cls: 'num', grp: 'Revenue', fmt: 'eur' },
@@ -2666,7 +2670,8 @@ function renderCATable(rows) {
   let colHdr = '<tr>';
   cols.forEach(c => {
     const arrow = caSortCol === c.key ? (caSortAsc ? ' ▲' : ' ▼') : '';
-    colHdr += '<th class="' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '">' + c.label + arrow + '</th>';
+    const colInfo = c.info ? ' <span class="kpi-info" style="position:relative;display:inline-block;vertical-align:middle;margin-left:2px;font-size:9px;width:14px;height:14px;line-height:14px">i</span><div class="kpi-info-tip" style="top:18px;right:auto;left:0;width:190px">' + c.info + '</div>' : '';
+    colHdr += '<th class="' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '" style="position:relative">' + c.label + colInfo + arrow + '</th>';
   });
   colHdr += '</tr>';
 

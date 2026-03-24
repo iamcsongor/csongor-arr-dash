@@ -557,7 +557,19 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         'csm': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
         'country': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
         'industry': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
+        'tenure': defaultdict(lambda: {'tytd': 0.0, 'lytd': 0.0}),
     }
+
+    # Pre-compute tenure per UP from up_monthly_rev (earliest month with revenue)
+    up_monthly_rev = samples_data['up_monthly_rev']
+    twelve_months_ago = f"{current_year - 1}-{today.month:02d}"
+    up_tenure_cache = {}
+    for up_name, mdata in up_monthly_rev.items():
+        months_with_data = sorted(k for k, v in mdata.items() if v > 0)
+        if months_with_data and months_with_data[0] < twelve_months_ago:
+            up_tenure_cache[up_name] = 'Established Business'
+        else:
+            up_tenure_cache[up_name] = 'New Logo'
 
     for acc_id in all_acc_ids:
         ty = acc_ytd_ty.get(acc_id, 0)
@@ -574,6 +586,11 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         # Account Cohort from the sheet (column AU)
         cohort = acc_info.get('account_cohort', '') or 'Unknown'
 
+        # Tenure from UP-level first test date
+        up_id = acc_casesafe_to_up.get(acc_id, acc_id)
+        up_name_for_tenure = accounts.get(up_id, {}).get('name', '')
+        tenure_val = up_tenure_cache.get(up_name_for_tenure, 'New Logo')
+
         dim_groups['cohort'][cohort]['tytd'] += ty
         dim_groups['cohort'][cohort]['lytd'] += ly
         dim_groups['csm'][csm]['tytd'] += ty
@@ -582,6 +599,8 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
         dim_groups['country'][country]['lytd'] += ly
         dim_groups['industry'][industry]['tytd'] += ty
         dim_groups['industry'][industry]['lytd'] += ly
+        dim_groups['tenure'][tenure_val]['tytd'] += ty
+        dim_groups['tenure'][tenure_val]['lytd'] += ly
 
     # Convert to serialisable format: list of {label, tytd, lytd, growth}
     grouped_testing_rev = {}
@@ -1005,15 +1024,8 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
         else:
             growth_cohort = 'New/Unknown'
 
-        # Tenure
-        if months_since_first >= 24:
-            tenure = 'Established'
-        elif months_since_first >= 12:
-            tenure = 'Growing'
-        elif months_since_first >= 6:
-            tenure = 'Recent'
-        else:
-            tenure = 'New'
+        # Tenure: New Logo = first test within last 12 months, else Established Business
+        tenure = 'New Logo' if months_since_first < 12 else 'Established Business'
 
         # Performance quadrant
         if total_arr > 50000 and tytd > 20000:
@@ -1136,7 +1148,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'fy25': round(sum(test_data.get(f"2025-{mo:02d}", 0) for mo in range(1, 13)), 2),
             'fc25': 0, 'target26': 0, 'perf_quad': 'Watch', 'rev_gap': 0,
             'ly_vs_ty': round((tytd / lytd - 1) * 100, 1) if lytd > 0 else (100.0 if tytd > 0 else 0), 'ytd_vs_tgt': 0,
-            'growth_cohort': 'New/Unknown', 'account_cohort': '', 'tenure': 'New',
+            'growth_cohort': 'New/Unknown', 'account_cohort': '', 'tenure': 'New Logo',
             'trend_18m': '', 'trend_12m': '', 'trend_6m': '',
             'activity': '', 'active_months': 0, 'frequency': 0,
             'first_test': '', 'months_since_first': 0,
