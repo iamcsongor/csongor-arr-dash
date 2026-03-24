@@ -286,6 +286,7 @@ th.col-info-wrap { display: table-cell; }
 
 .ca-filters { background: #fff; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 120px; flex: 1 1 120px; }
+.ca-filter-grp.pill-type { flex: 0 0 auto; min-width: auto; }
 .ca-filter-toggle { display: flex; align-items: center; gap: 6px; align-self: flex-end; padding: 7px 0; flex-shrink: 0; }
 .ca-filter-toggle label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; cursor: pointer; white-space: nowrap; }
 .ca-toggle-btn { width: 36px; height: 20px; border-radius: 10px; border: 1.5px solid #c8dbd9; background: #eef3f2; position: relative; cursor: pointer; transition: all .2s; flex-shrink: 0; }
@@ -422,8 +423,20 @@ th.col-info-wrap { display: table-cell; }
 <body>
 
 <div class="header">
-  <div class="header-left">
-    <h1>Cambri ARR Dashboard</h1>
+  <div class="header-left" style="display:flex;align-items:center;gap:14px">
+    <svg width="90" height="28" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+      <rect x="0" y="0" width="3.5" height="56" fill="#fff"/>
+      <rect x="33" y="0" width="3.5" height="56" fill="#fff"/>
+      <rect x="70" y="0" width="3.5" height="36" fill="#fff"/>
+      <rect x="100" y="0" width="3.5" height="56" fill="#fff"/>
+      <rect x="139" y="0" width="3.5" height="56" fill="#fff"/>
+      <rect x="176.5" y="0" width="3.5" height="56" fill="#fff"/>
+      <text x="9" y="43" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="38" fill="#fff" letter-spacing="1">CA</text>
+      <text x="77" y="43" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="38" fill="#fff" letter-spacing="1">BR</text>
+      <text x="148" y="43" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="38" fill="#fff" letter-spacing="1">I</text>
+    </svg>
+    <div>
+    <h1>ARR Dashboard</h1>
     <p id="metaInfo" style="font-size:13px;color:#5CECC6;margin-top:3px;position:relative;display:flex;align-items:center;gap:12px">
       <span id="metaText">Loading data...</span>
       <a href="https://github.com/iamcsongor/csongor-arr-dash/actions/workflows/refresh.yml" target="_blank" rel="noopener"
@@ -434,6 +447,7 @@ th.col-info-wrap { display: table-cell; }
          onmouseover="this.style.color='#0D9B7A';this.style.borderColor='#0D9B7A'" onmouseout="this.style.color='#8aaba9';this.style.borderColor='rgba(255,255,255,0.1)'"
          title="Reload page to show latest data">↺ Reload</span>
     </p>
+  </div>
   </div>
   <div class="ceo-toggle">
     <button class="ceo-btn" onclick="switchView('ceo')">CEO Dashboard</button>
@@ -2276,7 +2290,7 @@ function initCA() {
     const infoHtml = d.info ? ' <span class="col-info-wrap"><span class="col-info-i">i</span><span class="col-info-tip">' + d.info + '</span></span>' : '';
     if (d.pill) {
       const tpStyle = 'padding:6px 12px;border-radius:16px;border:1px solid #c8dbd9;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;transition:all .15s';
-      html += '<div class="ca-filter-grp"><label>' + d.label + infoHtml + '</label>';
+      html += '<div class="ca-filter-grp pill-type"><label>' + d.label + infoHtml + '</label>';
       html += '<div class="pill-grp" data-key="' + d.key + '" style="display:flex;gap:4px">';
       html += '<button class="tp-btn" data-val="all" onclick="setPillFilter(\'' + d.key + '\',\'all\')" style="' + tpStyle + ';background:#002C2A;color:#fff;border-color:#002C2A">All</button>';
       d.options.forEach((opt, i) => {
