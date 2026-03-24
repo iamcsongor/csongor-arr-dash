@@ -2414,15 +2414,29 @@ function renderCASummary(rows) {
   const arrChgCol = arrChgNum >= 0 ? '#008a73' : '#a0001e';
   const el = document.getElementById('caSummary');
   function caKpiTip(t) { return '<span class="kpi-info">i</span><div class="kpi-info-tip">' + t + '</div>'; }
+  // Pacing calculation
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const endOfYear = new Date(now.getFullYear(), 11, 31);
+  const daysPassed = Math.floor((now - startOfYear) / 86400000) + 1;
+  const daysInYear = Math.floor((endOfYear - startOfYear) / 86400000) + 1;
+  const expectedPace = totalTarget > 0 ? (daysPassed / daysInYear) * totalTarget : 0;
+  const pacingPct = expectedPace > 0 ? ((tytd / expectedPace) * 100).toFixed(0) : '—';
+  const pacingNum = expectedPace > 0 ? (tytd / expectedPace) * 100 : 0;
+  const pacingCol = pacingNum >= 100 ? '#008a73' : pacingNum >= 85 ? '#b08600' : '#a0001e';
+  const pacingLabel = pacingNum >= 100 ? 'Ahead' : pacingNum >= 85 ? 'Slightly behind' : 'Behind';
+  // YoY % for TYTD subtitle
+  const yoyPct = lytd ? ((net / lytd) * 100).toFixed(1) : '—';
+  const yoyCol = net >= 0 ? '#008a73' : '#a0001e';
+
   el.innerHTML =
     '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted) for the same YTD period last year, across filtered UPs.') + '<div class="ca-k-label">LYTD Revenue</div><div class="ca-k-val">' + fmtEur(lytd) + '</div><div class="ca-k-sub">Same period last year</div></div>' +
-    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue (sample revenue converted) year-to-date this year, across filtered UPs.') + '<div class="ca-k-label">TYTD Revenue</div><div class="ca-k-val">' + fmtEur(tytd) + '</div><div class="ca-k-sub ' + (net >= 0 ? 'pos' : 'neg') + '">' + (net >= 0 ? '▲' : '▼') + ' ' + fmtEur(Math.abs(net)) + '</div></div>' +
-    '<div class="ca-kpi">' + caKpiTip('TYTD vs LYTD revenue as a percentage. Positive = growth, negative = decline.') + '<div class="ca-k-label">Net Movement</div><div class="ca-k-val ' + (net >= 0 ? 'pos' : 'neg') + '" style="color:' + (net >= 0 ? '#008a73' : '#a0001e') + '">' + (net >= 0 ? '+' : '') + netPct + '%</div><div class="ca-k-sub">YoY change</div></div>' +
+    '<div class="ca-kpi accent">' + caKpiTip('Sum of testing revenue year-to-date this year. % shows YoY change vs LYTD.') + '<div class="ca-k-label">TYTD Revenue</div><div class="ca-k-val">' + fmtEur(tytd) + '</div><div class="ca-k-sub"><span style="font-weight:700;color:' + yoyCol + '">' + (net >= 0 ? '+' : '') + yoyPct + '%</span> vs LYTD</div></div>' +
+    '<div class="ca-kpi">' + caKpiTip('Pacing shows if TYTD revenue is on track vs the annual target, pro-rated by days elapsed (' + daysPassed + '/' + daysInYear + ' days). 100% = exactly on pace.') + '<div class="ca-k-label">Pacing</div><div class="ca-k-val" style="color:' + pacingCol + '">' + pacingPct + '%</div><div class="ca-k-sub" style="line-height:1.5">' + pacingLabel + ' · Target: ' + fmtEur(totalTarget) + '</div></div>' +
     '<div class="ca-kpi">' + caKpiTip('UPs with status Active, ARR Only, or Testing Only (excludes Churned and Inactive).') + '<div class="ca-k-label">Active Customers</div><div class="ca-k-val">' + active + '</div><div class="ca-k-sub">of ' + rows.length + ' filtered</div></div>' +
     '<div class="ca-kpi">' + caKpiTip('Hierarchy Live ARR Total from UP accounts (child accounts rolled up). Compared against EoQ4 2025 ARR.') + '<div class="ca-k-label">Live ARR</div><div class="ca-k-val">' + fmtEur(liveArr) + '</div>' +
       '<div class="ca-k-sub" style="line-height:1.5">EoQ4 \'25: ' + fmtEur(eoq4Arr) +
-      ' <span style="font-weight:700;color:' + arrChgCol + '">' + (arrChgNum >= 0 ? '+' : '') + arrChg + '%</span></div></div>' +
-    '<div class="ca-kpi">' + caKpiTip('Sum of 2026 Testing Revenue Target across filtered UPs.') + '<div class="ca-k-label">Target FY26</div><div class="ca-k-val">' + fmtEur(totalTarget) + '</div><div class="ca-k-sub">Filtered cohort</div></div>';
+      ' <span style="font-weight:700;color:' + arrChgCol + '">' + (arrChgNum >= 0 ? '+' : '') + arrChg + '%</span></div></div>';
 }
 
 function drawCAMonthChart(rows) {
