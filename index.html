@@ -441,15 +441,22 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
         <div class="ceo-legend" id="cumLegend"></div>
       </div>
     </div>
-    <!-- Grouped Testing Revenue Combo Chart -->
-    <div class="ceo-chart-card" style="margin-top:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-        <h3 style="margin:0">Testing Revenue by Group</h3>
-        <div id="groupDimPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <!-- Grouped Testing Revenue + Tenure Card -->
+    <div style="display:grid;grid-template-columns:3fr 1fr;gap:20px;margin-top:16px">
+      <div class="ceo-chart-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <h3 style="margin:0">Testing Revenue by Group</h3>
+          <div id="groupDimPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div class="subtitle">LYTD vs TYTD testing revenue with YoY growth %</div>
+        <canvas id="groupChart" style="width:100%;height:340px"></canvas>
+        <div class="ceo-legend" id="groupLegend"></div>
       </div>
-      <div class="subtitle">LYTD vs TYTD testing revenue with YoY growth %</div>
-      <canvas id="groupChart" style="width:100%;height:340px"></canvas>
-      <div class="ceo-legend" id="groupLegend"></div>
+      <div class="ceo-chart-card" style="display:flex;flex-direction:column;justify-content:center">
+        <h3 style="margin:0 0 4px 0">Tenure Split</h3>
+        <div class="subtitle" style="margin-bottom:16px">YTD testing revenue by customer tenure</div>
+        <div id="tenureCard"></div>
+      </div>
     </div>
   </div>
 
@@ -1486,7 +1493,6 @@ function initGroupChart() {
     { key: 'csm', label: 'CSM' },
     { key: 'country', label: 'Country' },
     { key: 'industry', label: 'Industry' },
-    { key: 'tenure', label: 'Tenure' },
   ];
   const container = document.getElementById('groupDimPills');
   container.innerHTML = dims.map(d =>
@@ -1495,6 +1501,15 @@ function initGroupChart() {
     d.label + '</label>'
   ).join('');
   drawGroupChart();
+}
+
+function niceAxis(maxVal, steps) {
+  const rawStep = maxVal / steps;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / mag;
+  const niceStep = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  const niceMax = Math.ceil(maxVal / niceStep) * niceStep;
+  return { niceMax, niceStep, nTicks: Math.round(niceMax / niceStep) };
 }
 
 function drawGroupChart() {
@@ -1517,90 +1532,77 @@ function drawGroupChart() {
   }
 
   let entries = grouped[currentGroupDim];
-  // Limit to top 15 groups for readability
   if (entries.length > 15) entries = entries.slice(0, 15);
   const n = entries.length;
   if (n === 0) return;
 
-  const pad = { top: 30, right: 60, bottom: 80, left: 70 };
+  const pad = { top: 30, right: 20, bottom: 80, left: 70 };
   const chartW = W - pad.left - pad.right;
   const chartH = H - pad.top - pad.bottom;
 
-  // Max bar value
-  const maxBarVal = Math.max(...entries.map(e => Math.max(e.tytd, e.lytd)), 1) * 1.15;
-  // Growth range for line (secondary axis)
-  const growths = entries.map(e => e.growth);
-  const minGrowth = Math.min(...growths, -10);
-  const maxGrowth = Math.max(...growths, 10);
-  const growthRange = Math.max(Math.abs(minGrowth), Math.abs(maxGrowth), 10) * 1.3;
+  // Nice Y-axis
+  const rawMax = Math.max(...entries.map(e => Math.max(e.tytd, e.lytd)), 1) * 1.2;
+  const ya = niceAxis(rawMax, 5);
 
-  // Bar sizing
   const groupWidth = chartW / n;
   const barWidth = Math.min(groupWidth * 0.3, 32);
   const barGap = Math.max(barWidth * 0.15, 2);
 
   function toX(i) { return pad.left + i * groupWidth + groupWidth / 2; }
-  function toYBar(v) { return pad.top + chartH - (v / maxBarVal) * chartH; }
-  function toYLine(g) { return pad.top + chartH / 2 - (g / growthRange) * (chartH / 2); }
+  function toYBar(v) { return pad.top + chartH - (v / ya.niceMax) * chartH; }
 
   ctx.clearRect(0, 0, W, H);
 
-  // Horizontal grid
+  // Horizontal grid + left Y labels
   ctx.strokeStyle = '#eef3f2';
   ctx.lineWidth = 1;
-  const gridSteps = 5;
-  for (let i = 0; i <= gridSteps; i++) {
-    const y = pad.top + (chartH / gridSteps) * i;
+  for (let i = 0; i <= ya.nTicks; i++) {
+    const y = pad.top + chartH - (chartH * i / ya.nTicks);
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+    ctx.fillStyle = '#8aaba9';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'right';
+    const val = ya.niceStep * i;
+    ctx.fillText('€' + Math.round(val / 1000) + 'k', pad.left - 8, y + 4);
   }
 
-  // Left Y-axis labels (revenue)
-  ctx.fillStyle = '#8aaba9';
-  ctx.font = '12px Arial';
-  ctx.textAlign = 'right';
-  for (let i = 0; i <= gridSteps; i++) {
-    const y = pad.top + (chartH / gridSteps) * i;
-    const val = maxBarVal - (maxBarVal / gridSteps) * i;
-    ctx.fillText('€' + Math.round(val / 1000) + 'k', pad.left - 8, y + 3);
-  }
-
-  // Right Y-axis labels (growth %)
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#9c27b0';
-  ctx.font = '12px Arial';
-  const growthTicks = [-Math.round(growthRange), -Math.round(growthRange / 2), 0, Math.round(growthRange / 2), Math.round(growthRange)];
-  growthTicks.forEach(g => {
-    const y = toYLine(g);
-    if (y >= pad.top && y <= pad.top + chartH) {
-      ctx.fillText((g > 0 ? '+' : '') + g + '%', W - pad.right + 8, y + 3);
-    }
-  });
-
-  // Zero line for growth
-  const zeroY = toYLine(0);
-  ctx.strokeStyle = '#d0d0d0';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath(); ctx.moveTo(pad.left, zeroY); ctx.lineTo(W - pad.right, zeroY); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Draw bars
+  // Draw bars + growth badges
   entries.forEach((e, i) => {
     const cx = toX(i);
 
     // LYTD bar (left, lighter)
-    const lyH = (e.lytd / maxBarVal) * chartH;
-    ctx.fillStyle = 'rgba(156, 39, 176, 0.2)';
-    ctx.strokeStyle = '#9c27b0';
-    ctx.lineWidth = 1;
-    ctx.fillRect(cx - barWidth - barGap / 2, pad.top + chartH - lyH, barWidth, lyH);
-    ctx.strokeRect(cx - barWidth - barGap / 2, pad.top + chartH - lyH, barWidth, lyH);
+    const lyH = (e.lytd / ya.niceMax) * chartH;
+    ctx.fillStyle = 'rgba(156, 39, 176, 0.15)';
+    ctx.beginPath();
+    ctx.roundRect(cx - barWidth - barGap / 2, pad.top + chartH - lyH, barWidth, lyH, [3, 3, 0, 0]);
+    ctx.fill();
 
     // TYTD bar (right, solid)
-    const tyH = (e.tytd / maxBarVal) * chartH;
-    ctx.fillStyle = 'rgba(156, 39, 176, 0.65)';
-    ctx.fillRect(cx + barGap / 2, pad.top + chartH - tyH, barWidth, tyH);
-    ctx.strokeRect(cx + barGap / 2, pad.top + chartH - tyH, barWidth, tyH);
+    const tyH = (e.tytd / ya.niceMax) * chartH;
+    ctx.fillStyle = 'rgba(156, 39, 176, 0.55)';
+    ctx.beginPath();
+    ctx.roundRect(cx + barGap / 2, pad.top + chartH - tyH, barWidth, tyH, [3, 3, 0, 0]);
+    ctx.fill();
+
+    // Growth badge above the taller bar
+    const topY = Math.min(pad.top + chartH - lyH, pad.top + chartH - tyH);
+    const g = e.growth;
+    const badgeY = topY - 18;
+    const badgeBg = g >= 20 ? 'rgba(13,155,122,0.15)' : g >= 0 ? 'rgba(13,155,122,0.08)' : g >= -20 ? 'rgba(250,83,140,0.1)' : 'rgba(250,83,140,0.18)';
+    const badgeCol = g >= 0 ? '#0D9B7A' : '#e04070';
+    const badgeText = (g > 0 ? '+' : '') + Math.round(g) + '%';
+    ctx.font = 'bold 10px Arial';
+    const tw = ctx.measureText(badgeText).width;
+    const bw = tw + 10, bh = 17, bx = cx - bw / 2, by = badgeY - bh / 2;
+    ctx.fillStyle = badgeBg;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 8);
+    ctx.fill();
+    ctx.fillStyle = badgeCol;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(badgeText, cx, badgeY);
+    ctx.textBaseline = 'alphabetic';
 
     // X-axis label (rotated)
     ctx.save();
@@ -1613,43 +1615,6 @@ function drawGroupChart() {
     ctx.fillText(lbl, 0, 0);
     ctx.restore();
   });
-
-  // Growth line (secondary axis)
-  ctx.strokeStyle = '#0D9B7A';
-  ctx.lineWidth = 2.5;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  entries.forEach((e, i) => {
-    const x = toX(i);
-    const y = toYLine(e.growth);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-
-  // Growth dots + labels
-  entries.forEach((e, i) => {
-    const x = toX(i);
-    const y = toYLine(e.growth);
-    ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#0D9B7A';
-    ctx.fill();
-    ctx.strokeStyle = '#002C2A';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Growth label (only if not too crowded)
-    if (n <= 10 || i % 2 === 0) {
-      ctx.fillStyle = e.growth >= 0 ? '#0D9B7A' : '#f87171';
-      ctx.font = 'bold 11px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText((e.growth > 0 ? '+' : '') + e.growth + '%', x, y - 8);
-    }
-  });
-
-  // Store for hover
-  canvas._group = { entries, toX, toYBar, toYLine, groupWidth, pad, chartW, chartH };
 
   // Hover tooltip
   canvas.onmousemove = function(ev) {
@@ -1687,10 +1652,38 @@ function drawGroupChart() {
   // Legend
   document.getElementById('groupLegend').innerHTML =
     '<div style="display:flex;gap:16px;font-size:13px;color:#5e8885;align-items:center">' +
-    '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.2);border:1px solid #9c27b0;vertical-align:middle;margin-right:4px"></span>LYTD</span>' +
-    '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.65);border:1px solid #9c27b0;vertical-align:middle;margin-right:4px"></span>TYTD</span>' +
-    '<span><span style="display:inline-block;width:16px;height:2px;background:#0D9B7A;vertical-align:middle;margin-right:4px"></span>Growth %</span>' +
+    '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.15);border-radius:2px;vertical-align:middle;margin-right:4px"></span>LYTD</span>' +
+    '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(156,39,176,.55);border-radius:2px;vertical-align:middle;margin-right:4px"></span>TYTD</span>' +
     '</div>';
+
+  // Tenure card
+  drawTenureCard();
+}
+
+function drawTenureCard() {
+  const container = document.getElementById('tenureCard');
+  if (!container) return;
+  const grouped = CEO.grouped_testing_rev;
+  if (!grouped || !grouped.tenure) {
+    container.innerHTML = '<div style="color:#8aaba9;font-size:13px">No tenure data yet</div>';
+    return;
+  }
+  const entries = grouped.tenure;
+  let html = '';
+  entries.forEach(e => {
+    const g = e.growth;
+    const gCol = g >= 0 ? '#0D9B7A' : '#e04070';
+    const gBg = g >= 0 ? 'rgba(13,155,122,0.1)' : 'rgba(250,83,140,0.1)';
+    html += '<div style="background:#f5f8f7;border-radius:12px;padding:16px;margin-bottom:12px">';
+    html += '<div style="font-size:12px;font-weight:600;color:#5e8885;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">' + e.label + '</div>';
+    html += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">';
+    html += '<div style="font-size:22px;font-weight:800;color:#002C2A">€' + Math.round(e.tytd / 1000).toLocaleString() + 'k</div>';
+    html += '<div style="font-size:12px;font-weight:700;color:' + gCol + ';background:' + gBg + ';padding:3px 8px;border-radius:10px">' + (g > 0 ? '+' : '') + Math.round(g) + '%</div>';
+    html += '</div>';
+    html += '<div style="font-size:11px;color:#8aaba9">LYTD: €' + Math.round(e.lytd / 1000).toLocaleString() + 'k</div>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
 }
 
 // ── MoM Chart (Testing Revenue Jan-Dec, bars + lines) ──
