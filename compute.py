@@ -901,13 +901,13 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
         b2_arr = sum(ci['arr_b2'] for ci in cis if ci['bucket'] == 'B2')
         total_arr = b1_arr + b2_arr
 
-        # Account-level info
+        # Account-level info — start from UP record itself, then fill from children
         acc_ids = up_groups.get(up_id, [])
-        csm = ''
-        owner = ''
-        industry = ''
-        tam_type = ''
-        account_cohort = ''
+        csm = up_info.get('csm', '') or ''
+        owner = up_info.get('owner', '') or ''
+        industry = up_info.get('industry', '') or ''
+        tam_type = up_info.get('tam_type', '') or ''
+        account_cohort = up_info.get('account_cohort', '') or ''
         for aid in acc_ids:
             a = accounts.get(aid, {})
             if a.get('csm') and not csm:
@@ -1056,7 +1056,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'target26': 0,
             'perf_quad': perf_quad,
             'rev_gap': 0,
-            'ly_vs_ty': round(tytd - lytd, 2),
+            'ly_vs_ty': round((tytd / lytd - 1) * 100, 1) if lytd > 0 else (100.0 if tytd > 0 else 0),
             'ytd_vs_tgt': 0,
             'growth_cohort': growth_cohort,
             'account_cohort': account_cohort,
@@ -1135,7 +1135,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'fy24': round(sum(test_data.get(f"2024-{mo:02d}", 0) for mo in range(1, 13)), 2),
             'fy25': round(sum(test_data.get(f"2025-{mo:02d}", 0) for mo in range(1, 13)), 2),
             'fc25': 0, 'target26': 0, 'perf_quad': 'Watch', 'rev_gap': 0,
-            'ly_vs_ty': round(tytd - lytd, 2), 'ytd_vs_tgt': 0,
+            'ly_vs_ty': round((tytd / lytd - 1) * 100, 1) if lytd > 0 else (100.0 if tytd > 0 else 0), 'ytd_vs_tgt': 0,
             'growth_cohort': 'New/Unknown', 'account_cohort': '', 'tenure': 'New',
             'trend_18m': '', 'trend_12m': '', 'trend_6m': '',
             'activity': '', 'active_months': 0, 'frequency': 0,
