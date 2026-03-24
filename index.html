@@ -286,7 +286,7 @@ th.col-info-wrap { display: table-cell; }
 
 .ca-filters { background: #fff; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 120px; flex: 1 1 120px; }
-.ca-filter-toggle { display: flex; align-items: center; gap: 6px; align-self: flex-end; padding: 7px 0; margin-left: auto; flex-shrink: 0; }
+.ca-filter-toggle { display: flex; align-items: center; gap: 6px; align-self: flex-end; padding: 7px 0; flex-shrink: 0; }
 .ca-filter-toggle label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; cursor: pointer; white-space: nowrap; }
 .ca-toggle-btn { width: 36px; height: 20px; border-radius: 10px; border: 1.5px solid #c8dbd9; background: #eef3f2; position: relative; cursor: pointer; transition: all .2s; flex-shrink: 0; }
 .ca-toggle-btn.on { background: #002C2A; border-color: #002C2A; }
@@ -2297,8 +2297,8 @@ function initCA() {
     });
     html += '</div></div></div>';
   });
-  html += '<button class="ca-reset" onclick="caResetFilters()">Reset</button>';
   html += '<div class="ca-filter-toggle"><div id="activeToggle" class="ca-toggle-btn" onclick="toggleActiveOnly()"></div><label onclick="toggleActiveOnly()">Active only</label></div>';
+  html += '<button class="ca-reset" onclick="caResetFilters()">Reset</button>';
   f.innerHTML = html;
   // close dropdowns when clicking outside
   document.addEventListener('click', function(e) {
