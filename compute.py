@@ -1202,6 +1202,17 @@ def main():
         print("\nReading samples...")
         samples_data = read_samples(wb, acc_casesafe_to_up, accounts)
 
+        # Read last-updated date from Summary tab cell C2
+        data_last_updated = ''
+        try:
+            summary_ws = wb['Summary']
+            c2_val = summary_ws.cell(row=2, column=3).value
+            if c2_val:
+                data_last_updated = fmt_date_display(c2_val) if isinstance(c2_val, (datetime.datetime, datetime.date)) else str(c2_val)
+            print(f"  Data last updated (C2): {data_last_updated}")
+        except Exception as e:
+            print(f"  Could not read Summary C2: {e}")
+
         wb.close()
 
         # 4. Build CEO dashboard
@@ -1226,6 +1237,7 @@ def main():
             'ceo': ceo_data,
             'meta': {
                 'extracted': today.isoformat(),
+                'data_last_updated': data_last_updated,
                 'source': 'ARR Working File',
                 'total_ups_arr': len(up_data),
                 'testing_only_count': len(testing_only_ups),
