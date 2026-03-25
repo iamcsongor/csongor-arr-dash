@@ -287,13 +287,13 @@ th.col-info-wrap { display: table-cell; }
 .ca-filters { background: #fff; border-radius: 14px; padding: 14px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 100px; max-width: 130px; flex: 1 1 100px; }
 .ca-filter-grp.pill-type { flex: 0 0 auto; min-width: auto; max-width: none; }
-.ca-filter-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.ca-active-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 8px; border: 1.5px solid #c8dbd9; background: #fff; transition: all .15s; font-family: inherit; }
+.ca-filter-right { display: flex; align-items: flex-end; gap: 10px; flex-shrink: 0; }
+.ca-active-toggle { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 5px 8px; border-radius: 7px; border: 1.5px solid #c8dbd9; background: #fff; transition: all .15s; font-family: inherit; }
 .ca-active-toggle:hover { border-color: #5CECC6; }
 .ca-active-toggle.on { background: #002C2A; border-color: #002C2A; color: #fff; }
-.ca-active-toggle .toggle-dot { width: 8px; height: 8px; border-radius: 50%; background: #c8dbd9; transition: all .15s; }
+.ca-active-toggle .toggle-dot { width: 6px; height: 6px; border-radius: 50%; background: #c8dbd9; transition: all .15s; }
 .ca-active-toggle.on .toggle-dot { background: #5CECC6; }
-.ca-active-toggle .toggle-label { font-size: 11px; font-weight: 600; color: #5e8885; transition: color .15s; }
+.ca-active-toggle .toggle-label { font-size: 10px; font-weight: 600; color: #5e8885; transition: color .15s; }
 .ca-active-toggle.on .toggle-label { color: #fff; }
 .ca-filter-grp label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; }
 .ca-filter-grp select { padding: 7px 10px; border: 1.5px solid #c8dbd9; border-radius: 8px; font-size: 13px; background: #fff; font-family: inherit; }
@@ -2294,8 +2294,10 @@ function initCA() {
     });
     html += '</div></div></div>';
   });
-  html += '<div class="ca-filter-right">';
+  html += '<div class="ca-filter-grp" style="flex:0 0 auto;min-width:auto;max-width:none"><label>Status</label>';
   html += '<div id="activeToggle" class="ca-active-toggle" onclick="toggleActiveOnly()"><span class="toggle-dot"></span><span class="toggle-label">Active only</span></div>';
+  html += '</div>';
+  html += '<div class="ca-filter-right">';
   html += '<button class="ca-reset" onclick="caResetFilters()">Reset</button>';
   html += '</div>';
   f.innerHTML = html;
