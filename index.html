@@ -362,11 +362,12 @@ th.col-info-wrap { display: table-cell; }
 .ca-cohort .co-sub { font-size: 12px; color: #5e8885; }
 
 /* Table */
-.ca-table-wrap { overflow: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,44,42,.08); }
+.ca-table-wrap { border-radius: 12px; box-shadow: 0 1px 4px rgba(0,44,42,.08); overflow-x: auto; overflow-y: auto; max-height: 75vh; }
 .ca-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; font-size: 12px; }
-/* Sticky header rows: grp row at top:0, column header row below it */
-.ca-table thead tr:first-child th { position: sticky; top: 0; z-index: 5; }
-.ca-table thead tr:nth-child(2) th { position: sticky; top: 26px; z-index: 4; background: #f0f6f5; box-shadow: 0 2px 4px rgba(0,44,42,.06); }
+/* Sticky header rows */
+.ca-table thead th { position: -webkit-sticky; position: sticky; z-index: 4; }
+.ca-table thead tr:first-child th { top: 0; z-index: 5; }
+.ca-table thead tr:nth-child(2) th { z-index: 4; background: #f0f6f5; }
 .ca-table th { background: #f0f6f5; padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #5e8885; text-align: left; border-bottom: 2px solid #c8dbd9; white-space: nowrap; cursor: pointer; user-select: none; }
 .ca-table th:hover { color: #002C2A; }
 .ca-table th.num { text-align: right; }
@@ -379,11 +380,11 @@ th.col-info-wrap { display: table-cell; }
 .ca-table .ca-up a:hover { color: #0D9B7A; text-decoration: underline; }
 .ca-table .ca-dim { color: #8aaba9; font-size: 11px; }
 /* Sticky first column (Customer) */
-.ca-table td:first-child { position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 2px 0 4px rgba(0,44,42,.04); }
+.ca-table td:first-child { position: -webkit-sticky; position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 2px 0 4px rgba(0,44,42,.04); }
 .ca-table tr:hover td:first-child { background: #f5faf9; }
-/* Header first-child: sticky both top AND left (corner cell) */
-.ca-table thead tr:first-child th:first-child { position: sticky; left: 0; z-index: 10; background: #002C2A; }
-.ca-table thead tr:nth-child(2) th:first-child { position: sticky; left: 0; z-index: 10; background: #f0f6f5; }
+/* Header corner cells: sticky both axes */
+.ca-table thead tr:first-child th:first-child { left: 0; z-index: 10; background: #002C2A; }
+.ca-table thead tr:nth-child(2) th:first-child { left: 0; z-index: 10; background: #f0f6f5; }
 
 /* Inline bar */
 .ca-bar { display: inline-block; height: 10px; border-radius: 4px; min-width: 2px; vertical-align: middle; }
@@ -517,7 +518,7 @@ th.col-info-wrap { display: table-cell; }
     </div>
     <!-- Table -->
     <div class="ca-count" id="caCount"></div>
-    <div class="ca-table-wrap" style="max-height: 75vh; overflow-y: auto;">
+    <div class="ca-table-wrap">
       <table class="ca-table" id="caTable"></table>
     </div>
   </div>
@@ -3199,13 +3200,20 @@ function renderCATable(rows) {
     th.addEventListener('click', function() { caSort(this.getAttribute('data-col')); });
   });
   // Dynamically set second header row sticky top to match first row height
-  const grpRow = tbl.querySelector('thead tr:first-child');
-  if (grpRow) {
-    const grpH = grpRow.getBoundingClientRect().height;
-    tbl.querySelectorAll('thead tr:nth-child(2) th').forEach(function(th) {
-      th.style.top = grpH + 'px';
-    });
-  }
+  requestAnimationFrame(function() {
+    const grpRow = tbl.querySelector('thead tr:first-child');
+    if (grpRow) {
+      const grpH = grpRow.getBoundingClientRect().height;
+      tbl.querySelectorAll('thead tr:nth-child(2) th').forEach(function(th) {
+        th.style.top = grpH + 'px';
+      });
+      // Add shadow to last header row for visual separation
+      const lastHdrCells = tbl.querySelectorAll('thead tr:nth-child(2) th');
+      if (lastHdrCells.length) {
+        lastHdrCells[lastHdrCells.length - 1].parentElement.style.boxShadow = '0 2px 4px rgba(0,44,42,.1)';
+      }
+    }
+  });
 }
 
 function caSort(col) {
