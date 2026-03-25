@@ -264,7 +264,7 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .kpi-info:hover + .kpi-info-tip, .kpi-info-tip:hover { display: block; }
 .kpi-info-tip { display: none; position: absolute; top: 28px; right: 4px; background: #002C2A; color: #fff; font-size: 11px; padding: 8px 12px; border-radius: 8px; width: 210px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.2); line-height: 1.4; text-align: left; font-weight: 400; }
 .col-info-wrap { position: relative; display: inline-block; vertical-align: middle; margin-left: 3px; }
-th.col-info-wrap { display: table-cell; }
+th.col-info-wrap { display: table-cell; position: -webkit-sticky; position: sticky; }
 .col-info-i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #d0dbd9; color: #3d5c5a; font-size: 9px; font-weight: 700; line-height: 14px; text-align: center; cursor: default; font-style: italic; font-family: Georgia, serif; }
 .col-info-tip { display: none; position: absolute; top: 22px; left: 50%; transform: translateX(-50%); background: #002C2A; color: #fff; font-size: 11px; font-weight: 400; font-style: normal; padding: 8px 12px; border-radius: 8px; width: 220px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,.3); line-height: 1.4; text-align: left; white-space: normal; pointer-events: none; }
 .col-info-wrap:hover .col-info-tip { display: block; }
@@ -3084,9 +3084,8 @@ function renderCATable(rows) {
   let colHdr = '<tr>';
   cols.forEach(c => {
     const arrow = caSortCol === c.key ? (caSortAsc ? ' ▲' : ' ▼') : '';
-    const tipAttr = c.info ? ' style="position:relative"' : '';
     const tipHtml = c.info ? '<span class="col-info-tip" style="left:0;transform:none">' + c.info + '</span>' : '';
-    colHdr += '<th class="col-info-wrap ' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '"' + tipAttr + '>' + c.label + arrow + tipHtml + '</th>';
+    colHdr += '<th class="col-info-wrap ' + (c.cls.includes('num') ? 'num' : '') + '" data-col="' + c.key + '">' + c.label + arrow + tipHtml + '</th>';
   });
   colHdr += '</tr>';
 
