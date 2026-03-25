@@ -267,7 +267,21 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
     """
     ws = wb['All Samples All Info 2']
 
-    EXCLUDED_STATUSES = {'Not reconciled', 'Not to be Invoiced', 'Data Loaded Back Data', '', 'None'}
+    # --- Header validation (row 5) ---
+    hdr_row = None
+    for _r in ws.iter_rows(min_row=5, max_row=5, values_only=True):
+        hdr_row = list(_r)
+        break
+    if hdr_row:
+        expected = {5: 'Account', 10: 'Sample Revenue (converted)', 12: 'Status', 14: 'Date Completed'}
+        for idx, exp_label in expected.items():
+            actual = safe_str(hdr_row[idx]) if len(hdr_row) > idx else '(missing)'
+            if exp_label.lower() not in actual.lower():
+                print(f"  ⚠️  COLUMN MISMATCH at index {idx}: expected '{exp_label}', got '{actual}'")
+            else:
+                print(f"  ✓ Column {idx} confirmed: '{actual}'")
+
+    EXCLUDED_STATUSES = {'Not reconciled', 'Not to be Invoiced', 'Data Loaded Back Data'}
 
     today = datetime.date.today()
     current_year = today.year
@@ -352,6 +366,11 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
                     if up_id and up_id in accounts:
                         up_name = accounts[up_id].get('name', '')
                     break
+
+        # Debug: log Valio Oy samples for FY24
+        if yr == 2024 and ('valio' in acc_name.lower() or 'valio' in up_name.lower()):
+            excluded = status in EXCLUDED_STATUSES
+            print(f"  [VALIO FY24] acc='{acc_name}' up='{up_name}' status='{status}' rev={rev_f:.2f} date={yr}-{mo:02d}-{dy:02d} excluded={excluded}")
 
         # CEO dashboard aggregation (exclude Not reconciled, Not to be Invoiced, blank)
         if status not in EXCLUDED_STATUSES:
