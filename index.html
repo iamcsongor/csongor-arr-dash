@@ -1899,6 +1899,7 @@ function drawMoMMonthly() {
       const by = pad.top + cH - bh;
       barMeta.push({ x: bx, w: barW, month: m, year: yr, val: v });
       if (v <= 0) return;
+      ctx.globalAlpha = yr === ty ? 1 : 0.35;
       ctx.fillStyle = yearColors[yr];
       ctx.beginPath();
       const r = Math.min(3, bh / 2);
@@ -1913,6 +1914,7 @@ function drawMoMMonthly() {
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
+      ctx.globalAlpha = 1;
     });
   }
 

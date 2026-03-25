@@ -445,15 +445,12 @@ def extract_ceo_dashboard(samples_data, accounts, acc_casesafe_to_up):
     company_daily_rev = samples_data['company_daily_rev']
     up_yearly_rev_ceo = samples_data['up_yearly_rev_ceo']
 
-    # Build CEO months (last 25 months)
+    # Build CEO months (cover full calendar years back to 2 years prior)
     ceo_months = []
-    for i in range(24, -1, -1):
-        m = current_month - i
-        y = current_year
-        while m <= 0:
-            m += 12
-            y -= 1
-        ceo_months.append(f"{y}-{m:02d}")
+    start_year = current_year - 2
+    for y in range(start_year, current_year + 1):
+        for m in range(1, 13):
+            ceo_months.append(f"{y}-{m:02d}")
 
     ceo_monthly = {m: round(company_monthly_rev.get(m, 0), 2) for m in ceo_months}
 
