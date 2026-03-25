@@ -284,15 +284,17 @@ th.col-info-wrap { display: table-cell; }
 .ca-panel { display: none; }
 .ca-panel.active { display: block; }
 
-.ca-filters { background: #fff; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.ca-filters { background: #fff; border-radius: 14px; padding: 14px 20px; box-shadow: 0 1px 4px rgba(0,44,42,.08); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .ca-filter-grp { display: flex; flex-direction: column; gap: 3px; min-width: 100px; max-width: 130px; flex: 1 1 100px; }
-.ca-filter-grp.pill-type { flex: 0 0 auto; min-width: auto; }
-.ca-filter-toggle { display: flex; align-items: center; gap: 6px; align-self: flex-end; padding: 7px 0; flex-shrink: 0; }
-.ca-filter-toggle label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; cursor: pointer; white-space: nowrap; }
-.ca-toggle-btn { width: 36px; height: 20px; border-radius: 10px; border: 1.5px solid #c8dbd9; background: #eef3f2; position: relative; cursor: pointer; transition: all .2s; flex-shrink: 0; }
-.ca-toggle-btn.on { background: #002C2A; border-color: #002C2A; }
-.ca-toggle-btn::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
-.ca-toggle-btn.on::after { transform: translateX(16px); }
+.ca-filter-grp.pill-type { flex: 0 0 auto; min-width: auto; max-width: none; }
+.ca-filter-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-shrink: 0; }
+.ca-active-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 8px; border: 1.5px solid #c8dbd9; background: #fff; transition: all .15s; font-family: inherit; }
+.ca-active-toggle:hover { border-color: #5CECC6; }
+.ca-active-toggle.on { background: #002C2A; border-color: #002C2A; color: #fff; }
+.ca-active-toggle .toggle-dot { width: 8px; height: 8px; border-radius: 50%; background: #c8dbd9; transition: all .15s; }
+.ca-active-toggle.on .toggle-dot { background: #5CECC6; }
+.ca-active-toggle .toggle-label { font-size: 11px; font-weight: 600; color: #5e8885; transition: color .15s; }
+.ca-active-toggle.on .toggle-label { color: #fff; }
 .ca-filter-grp label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5e8885; }
 .ca-filter-grp select { padding: 7px 10px; border: 1.5px solid #c8dbd9; border-radius: 8px; font-size: 13px; background: #fff; font-family: inherit; }
 .ca-filter-grp select:focus { outline: none; border-color: #5CECC6; }
@@ -413,8 +415,8 @@ th.col-info-wrap { display: table-cell; }
   .ca-summary { grid-template-columns: 1fr 1fr; }
   .ca-chart-row { grid-template-columns: 1fr; }
   .ca-filters { flex-direction: column; gap: 8px; }
-  .ca-filter-grp { min-width: 100%; flex: 1 1 100%; }
-  .ca-filter-toggle { margin-left: 0; align-self: flex-start; }
+  .ca-filter-grp { min-width: 100%; max-width: 100%; flex: 1 1 100%; }
+  .ca-filter-right { margin-left: 0; width: 100%; justify-content: space-between; }
   .pill-grp { flex-wrap: wrap; }
   .header { flex-direction: column; gap: 12px; align-items: flex-start; }
 }
@@ -2272,8 +2274,7 @@ function initCA() {
     { key: 'csm', label: 'CSM' },
     { key: 'industry', label: 'Industry' },
     { key: 'account_cohort', label: 'Account Cohort' },
-    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'] },
-    { key: 'status', label: 'Active Only', pill: true, options: ['Active'], optLabels: ['Active'] }
+    { key: 'tenure', label: 'Tenure', pill: true, options: ['New Logo', 'Established Business'], optLabels: ['New Logo', 'EB'] }
   ];
   let html = '';
   dims.forEach(d => {
@@ -2301,7 +2302,10 @@ function initCA() {
     });
     html += '</div></div></div>';
   });
+  html += '<div class="ca-filter-right">';
+  html += '<div id="activeToggle" class="ca-active-toggle" onclick="toggleActiveOnly()"><span class="toggle-dot"></span><span class="toggle-label">Active only</span></div>';
   html += '<button class="ca-reset" onclick="caResetFilters()">Reset</button>';
+  html += '</div>';
   f.innerHTML = html;
   // close dropdowns when clicking outside
   document.addEventListener('click', function(e) {
@@ -2382,8 +2386,16 @@ function setPillFilter(key, val) {
   renderCA();
 }
 
+function toggleActiveOnly() {
+  const btn = document.getElementById('activeToggle');
+  const isOn = btn.classList.toggle('on');
+  caFilters.status = isOn ? ['Active'] : [];
+  renderCA();
+}
+
 function caResetFilters() {
   caFilters = { csm: [], industry: [], account_cohort: [], tenure: [], status: [] };
+  document.getElementById('activeToggle').classList.remove('on');
   document.querySelectorAll('.ca-ms-opt').forEach(o => o.classList.remove('sel'));
   document.querySelectorAll('.ca-ms-trigger').forEach(t => { t.innerHTML = '<span class="ca-ms-ph">All</span>'; });
   // Reset all pill toggles
