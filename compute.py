@@ -267,9 +267,7 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
     """
     ws = wb['All Samples All Info 2']
 
-    EXCLUDED_STATUSES_CEO = {'Not reconciled', 'Not to be Invoiced', '', 'None'}
-    EXCLUDED_STATUSES_TESTING = {'Not to be Invoiced', 'Not reconciled', 'Data Loaded Back Data'}
-    EXCLUDED_STATUSES_YTD = {'Not to be Invoiced'}
+    EXCLUDED_STATUSES = {'Not reconciled', 'Not to be Invoiced', 'Data Loaded Back Data', '', 'None'}
 
     today = datetime.date.today()
     current_year = today.year
@@ -315,7 +313,7 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
             continue
 
         acc_name = safe_str(row[5])     # F = Account
-        rev = row[10]                    # K = Revenue (converted)
+        rev = row[10]                    # K = Sample Revenue (converted)
         status = safe_str(row[12])       # M = Status
         date_completed = row[14]         # O = Date Completed
         acc_id18 = safe_str(row[18]) if len(row) > 18 else ''  # S = Account Casesafe ID 18
@@ -356,7 +354,7 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
                     break
 
         # CEO dashboard aggregation (exclude Not reconciled, Not to be Invoiced, blank)
-        if status not in EXCLUDED_STATUSES_CEO:
+        if status not in EXCLUDED_STATUSES:
             company_monthly_rev[key] += rev_f
             company_daily_rev[key][dy] += rev_f
             if up_name:
@@ -369,7 +367,7 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
                     active_ups_lytd.add(up_name)
 
         # Testing revenue aggregation (exclude Not to be Invoiced, Not reconciled, Data Loaded Back Data)
-        if status not in EXCLUDED_STATUSES_TESTING:
+        if status not in EXCLUDED_STATUSES:
             if up_name:
                 up_monthly_rev[up_name][key] += rev_f
                 up_yearly_rev[up_name][yr] += rev_f
@@ -380,7 +378,7 @@ def read_samples(wb, acc_casesafe_to_up, accounts):
                 acc_total_rev[acc_name] += rev_f
 
         # YTD testing revenue (status != "Not to be Invoiced")
-        if status not in EXCLUDED_STATUSES_YTD:
+        if status not in EXCLUDED_STATUSES:
             sample_date = datetime.date(yr, mo, dy)
             if yr == current_year and sample_date <= today:
                 ytd_testing_this_year += rev_f
