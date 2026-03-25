@@ -1866,13 +1866,15 @@ function drawMoMMonthly() {
   const step = momNiceStep(maxVal);
   const niceMax = Math.ceil(maxVal / step) * step;
 
-  // Bar geometry: each month gets a group of nYears bars
-  const groupGap = cW * 0.06; // space between month groups
-  const groupW = (cW - groupGap * 13) / 12;
-  const barW = Math.min(groupW / nYears - 1, 28);
-  const innerGap = Math.max(1, (groupW - barW * nYears) / (nYears + 1));
+  // Bar geometry: maximise bar width, small gap between groups
+  const groupGap = 6; // px between month groups
+  const totalGroupGaps = groupGap * 11; // gaps between 12 groups
+  const edgePad = 4; // small edge padding
+  const groupW = (cW - totalGroupGaps - edgePad * 2) / 12;
+  const innerGap = 1.5; // tiny gap between bars within group, white stroke handles separation
+  const barW = (groupW - innerGap * (nYears - 1)) / nYears;
 
-  function groupX(m) { return pad.left + groupGap + m * (groupW + groupGap); }
+  function groupX(m) { return pad.left + edgePad + m * (groupW + groupGap); }
   function toY(v) { return pad.top + cH - (v / niceMax) * cH; }
 
   ctx.clearRect(0, 0, W, H);
@@ -1892,7 +1894,7 @@ function drawMoMMonthly() {
     displayYears.forEach((yr, yi) => {
       const vals = yearData[yr] || new Array(12).fill(0);
       const v = vals[m];
-      const bx = groupX(m) + innerGap + yi * (barW + innerGap);
+      const bx = groupX(m) + yi * (barW + innerGap);
       const bh = v > 0 ? (v / niceMax) * cH : 0;
       const by = pad.top + cH - bh;
       barMeta.push({ x: bx, w: barW, month: m, year: yr, val: v });
@@ -1907,6 +1909,10 @@ function drawMoMMonthly() {
       ctx.lineTo(bx, pad.top + cH);
       ctx.closePath();
       ctx.fill();
+      // White outline for separation
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     });
   }
 
