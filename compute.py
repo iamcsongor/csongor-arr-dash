@@ -711,13 +711,17 @@ def extract_up_explorer(accounts, id15_to_id18, acc_casesafe_to_up, all_ci, samp
 
         def visit(node, level):
             info = accounts[node]
+            # Credit balance: prefer accounts-sheet value, fall back to CI-level sum
+            cb = info.get('credit_balance', 0) or 0
+            if not cb:
+                cb = acc_credit_from_ci.get(node, 0)
             result = [{
                 'id': node, 'name': info['name'], 'type': info['type'],
                 'country': info['country'], 'level': level,
                 'owner': info['owner'], 'csm': info['csm'],
                 'industry': info['industry'], 'is_customer': info['is_customer'],
                 'last_activity': info['last_activity'],
-                'credit_balance': info.get('credit_balance', 0) or 0,
+                'credit_balance': cb,
                 'rev_target_2026': info.get('rev_target_2026', 0) or 0,
                 'b1_arr': info['b1_arr'], 'b2_arr': info['b2_arr'],
                 'total_arr': info['total_arr'],
@@ -740,6 +744,12 @@ def extract_up_explorer(accounts, id15_to_id18, acc_casesafe_to_up, all_ci, samp
             ci_by_up[ci['up_id']].append(ci)
     for up_id in ci_by_up:
         ci_by_up[up_id].sort(key=lambda x: BUCKET_ORDER.get(x['bucket'], 99))
+
+    # Per-account credit balance from CIs (sum credit_balance per account_id)
+    acc_credit_from_ci = defaultdict(float)
+    for ci in all_ci:
+        if ci.get('account_id') and ci.get('credit_balance'):
+            acc_credit_from_ci[ci['account_id']] += ci['credit_balance']
 
     # UP-level ARR from CIs
     up_b1_arr = defaultdict(float)
