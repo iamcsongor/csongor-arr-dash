@@ -841,9 +841,8 @@ def extract_up_explorer(accounts, id15_to_id18, acc_casesafe_to_up, all_ci, samp
             up['testing_rev_tytd'] = tytd
             up['testing_rev_nrr'] = nrr
             acc_ids = up_groups.get(up['id'], [])
-            up['testing_rev_target_2026'] = sum(
-                (accounts[aid].get('rev_target_2026', 0) or 0) for aid in acc_ids
-            )
+            up_acc = accounts.get(up['id'], {})
+            up['testing_rev_target_2026'] = up_acc.get('testing_target_2026', 0) or 0
             matched += 1
 
     # Enrich hierarchy accounts with testing revenue
@@ -1087,7 +1086,7 @@ def extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up
             'fy24': round(fy24, 2),
             'fy25': round(fy25, 2),
             'fc25': 0,
-            'target26': round(sum((accounts.get(aid, {}).get('testing_target_2026', 0) or 0) for aid in acc_ids), 2),
+            'target26': round(up_info.get('testing_target_2026', 0) or 0, 2),
             'perf_quad': perf_quad,
             'rev_gap': 0,
             'ly_vs_ty': round((tytd / lytd - 1) * 100, 1) if lytd > 0 else (100.0 if tytd > 0 else 0),
