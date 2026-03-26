@@ -1259,7 +1259,7 @@ def main():
             'bcl': bcl_data,
             'ceo': ceo_data,
             'meta': {
-                'extracted': today.isoformat(),
+                'extracted': datetime.datetime.now().isoformat(),
                 'data_last_updated': data_last_updated,
                 'source': 'ARR Working File',
                 'total_ups_arr': len(up_data),
