@@ -601,8 +601,8 @@ function sfLink(id, text) {
 // State
 let currentUP = null;
 let ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
-let ciSortCol = null;
-let ciSortDir = 1;
+let ciSortCol = 'start_date';
+let ciSortDir = -1;
 
 // ── Tabs ──
 function switchTab(tab) {
@@ -726,7 +726,8 @@ function renderUP() {
   const idx = +document.getElementById('upSelect').value;
   currentUP = DATA[idx];
   ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
-  ciSortCol = null;
+  ciSortCol = 'start_date';
+  ciSortDir = -1;
 
   // Update search input and chips
   const input = document.getElementById('upSearchInput');
