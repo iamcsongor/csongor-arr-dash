@@ -600,7 +600,7 @@ function sfLink(id, text) {
 
 // State
 let currentUP = null;
-let ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
+let ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [] };
 let ciSortCol = 'start_date';
 let ciSortDir = -1;
 
@@ -725,7 +725,7 @@ function init() {
 function renderUP() {
   const idx = +document.getElementById('upSelect').value;
   currentUP = DATA[idx];
-  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
+  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [] };
   ciSortCol = 'start_date';
   ciSortDir = -1;
 
@@ -1206,10 +1206,6 @@ function renderFilters() {
           </div>
         </div>
       </div>
-      <div class="filter-group"><label>Start From</label><input type="date" id="startFrom" onchange="ciFilters.startFrom=this.value; renderCITable()"></div>
-      <div class="filter-group"><label>Start To</label><input type="date" id="startTo" onchange="ciFilters.startTo=this.value; renderCITable()"></div>
-      <div class="filter-group"><label>End From</label><input type="date" id="endFrom" onchange="ciFilters.endFrom=this.value; renderCITable()"></div>
-      <div class="filter-group"><label>End To</label><input type="date" id="endTo" onchange="ciFilters.endTo=this.value; renderCITable()"></div>
       <div class="filter-group" style="justify-content:flex-end"><button class="filter-reset" onclick="resetFilters()">Reset Filters</button></div>
       <span class="ci-count-badge" id="ciCountBadge"></span>
     </div>`;
@@ -1316,7 +1312,7 @@ function setActive(val) {
 }
 
 function resetFilters() {
-  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [], startFrom: '', startTo: '', endFrom: '', endTo: '' };
+  ciFilters = { accounts: [], bucket: 'all', contributing: 'all', active: 'all', billingStatus: [], productFamily: [] };
   document.querySelectorAll('#msAccountsDD .ms-item input').forEach(cb => cb.checked = true);
   document.getElementById('msAccountsAll').checked = true;
   updateMSText('msAccounts');
@@ -1326,10 +1322,6 @@ function resetFilters() {
   document.querySelectorAll('#msProductFamilyDD .ms-item input').forEach(cb => cb.checked = true);
   document.getElementById('msProductFamilyAll').checked = true;
   updateMSText('msProductFamily');
-  document.getElementById('startFrom').value = '';
-  document.getElementById('startTo').value = '';
-  document.getElementById('endFrom').value = '';
-  document.getElementById('endTo').value = '';
   setBucket('all');
   setContrib('all');
   setActive('all');
@@ -1363,10 +1355,6 @@ function getFilteredCIs() {
     const pfSet = new Set(selPF);
     items = items.filter(ci => pfSet.has(ci.product_family));
   }
-  if (ciFilters.startFrom) items = items.filter(ci => ci.start_iso >= ciFilters.startFrom);
-  if (ciFilters.startTo) items = items.filter(ci => ci.start_iso <= ciFilters.startTo);
-  if (ciFilters.endFrom) items = items.filter(ci => ci.end_iso >= ciFilters.endFrom);
-  if (ciFilters.endTo) items = items.filter(ci => ci.end_iso <= ciFilters.endTo);
   if (ciSortCol !== null) {
     const sortKey = ciSortCol === 'start_date' ? 'start_iso' : ciSortCol === 'end_date' ? 'end_iso' : ciSortCol;
     items = [...items].sort((a, b) => {
