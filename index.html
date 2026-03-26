@@ -236,6 +236,14 @@ body { font-family: 'Degular', Arial, sans-serif; background: #f4f6f5; color: #0
 .pf-PoC { background: #f3ddf7; color: #230040; }
 .pf-MS { background: #d4f7ed; color: #004d40; }
 
+.ci-timeline-section { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,44,42,.08); border: 1px solid #e8efed; margin-bottom: 16px; overflow: hidden; }
+.ci-timeline-header { padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; }
+.ci-timeline-header:hover { background: #f5faf9; }
+.ci-timeline-arrow { font-size: 10px; color: #5e8885; transition: transform .15s; }
+.ci-timeline-arrow.open { transform: rotate(90deg); }
+.ci-timeline-body { padding: 0 16px 12px; }
+.ci-timeline-legend { display: flex; gap: 16px; font-size: 11px; color: #5e8885; margin-top: 6px; }
+
 .bs-paid { color: #008a73; font-weight: 600; }
 .bs-invoiced { color: #1a6abf; }
 .bs-pending { color: #9a5a00; }
@@ -565,6 +573,22 @@ th.col-info-wrap { display: table-cell; position: -webkit-sticky; position: stic
 
   <!-- Tab: Contract Items -->
   <div class="tab-content" id="tab-contracts">
+    <!-- Collapsible Timeline -->
+    <div class="ci-timeline-section">
+      <div class="ci-timeline-header" onclick="toggleCITimeline()">
+        <span class="ci-timeline-arrow" id="ciTimelineArrow">▶</span>
+        <span style="font-weight:700;font-size:13px;color:#002C2A">Contract Timeline</span>
+        <span style="font-size:11px;color:#8aaba9;margin-left:8px">License, Credit &amp; PAYG items over time</span>
+      </div>
+      <div class="ci-timeline-body" id="ciTimelineBody" style="display:none">
+        <canvas id="ciTimelineCanvas" style="width:100%;height:200px;cursor:default"></canvas>
+        <div class="ci-timeline-legend">
+          <span><span style="display:inline-block;width:12px;height:12px;background:#0D9B7A;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Licensing</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#9B59B6;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Credits</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#3498DB;border-radius:2px;vertical-align:middle;margin-right:4px"></span>PAYG / B2</span>
+        </div>
+      </div>
+    </div>
     <div class="section-header">Contract Items <span class="count" id="ciCount"></span></div>
     <div class="filters-bar" id="filtersBar"></div>
     <div style="overflow-x:auto">
@@ -1392,6 +1416,232 @@ const CI_COLS = [
   { key: 'start_date', label: 'Start' },
   { key: 'end_date', label: 'End' },
 ];
+
+// ── Contract Timeline ──
+function toggleCITimeline() {
+  const body = document.getElementById('ciTimelineBody');
+  const arrow = document.getElementById('ciTimelineArrow');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  arrow.classList.toggle('open', open);
+  if (open) drawCITimeline();
+}
+
+function drawCITimeline() {
+  if (!currentUP || !currentUP.contract_items) return;
+  const canvas = document.getElementById('ciTimelineCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+
+  // Filter to relevant product families
+  const pfColors = { 'Licensing': '#0D9B7A', 'Credits': '#9B59B6', 'PAYG': '#3498DB' };
+  const today = new Date();
+  const items = currentUP.contract_items
+    .filter(ci => {
+      const pf = ci.product_family || '';
+      return pf === 'Licensing' || pf === 'Credits' || pf === 'PAYG';
+    })
+    .map(ci => {
+      const pf = ci.product_family;
+      let startD = ci.start_iso ? new Date(ci.start_iso) : null;
+      let endD = ci.end_iso ? new Date(ci.end_iso) : null;
+      // PAYG/B2: if no end date, show 12 months from start
+      if (startD && !endD) {
+        endD = new Date(startD);
+        endD.setMonth(endD.getMonth() + 12);
+      }
+      if (!startD) return null;
+      if (!endD) endD = new Date(startD.getTime() + 365 * 86400000);
+      return {
+        name: ci.name || ci.account || '',
+        pf: pf,
+        color: pfColors[pf] || '#5e8885',
+        start: startD.getTime(),
+        end: endD.getTime(),
+        bv: ci.billed_value || 0,
+        account: ci.account || ''
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  if (items.length === 0) {
+    canvas.height = 40 * dpr;
+    canvas.style.height = '40px';
+    canvas.width = rect.width * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#8aaba9';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('No license, credit or PAYG items to display', rect.width / 2, 22);
+    return;
+  }
+
+  // Time range
+  const minT = Math.min(...items.map(i => i.start));
+  const maxT = Math.max(...items.map(i => i.end));
+  const pad = { top: 8, right: 16, bottom: 28, left: 16 };
+  const barH = 16;
+  const barGap = 2;
+
+  // Pack bars into rows (greedy, no overlap)
+  const rows = [];
+  items.forEach(item => {
+    let placed = false;
+    for (let r = 0; r < rows.length; r++) {
+      const lastEnd = rows[r][rows[r].length - 1].end;
+      if (item.start >= lastEnd) {
+        rows[r].push(item);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) rows.push([item]);
+  });
+
+  const chartH = rows.length * (barH + barGap) - barGap;
+  const totalH = pad.top + chartH + pad.bottom;
+  canvas.style.height = totalH + 'px';
+  canvas.width = rect.width * dpr;
+  canvas.height = totalH * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const cW = W - pad.left - pad.right;
+
+  function tToX(t) { return pad.left + ((t - minT) / (maxT - minT)) * cW; }
+
+  ctx.clearRect(0, 0, W, totalH);
+
+  // Draw bars
+  canvas._ciTimeline = { rows, tToX, pad, barH, barGap, minT, maxT };
+  rows.forEach((row, ri) => {
+    const y = pad.top + ri * (barH + barGap);
+    row.forEach(item => {
+      const x1 = tToX(item.start);
+      const x2 = tToX(item.end);
+      const bw = Math.max(x2 - x1, 3);
+      // Bar
+      ctx.fillStyle = item.color;
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath();
+      const r = Math.min(3, bw / 2, barH / 2);
+      ctx.moveTo(x1 + r, y);
+      ctx.arcTo(x1 + bw, y, x1 + bw, y + barH, r);
+      ctx.arcTo(x1 + bw, y + barH, x1, y + barH, r);
+      ctx.arcTo(x1, y + barH, x1, y, r);
+      ctx.arcTo(x1, y, x1 + bw, y, r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Label inside bar if wide enough
+      if (bw > 50) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '9px Arial';
+        ctx.textAlign = 'left';
+        const label = (item.account ? item.account.substring(0, 20) : '') + ' €' + Math.round(item.bv).toLocaleString();
+        ctx.fillText(label, x1 + 4, y + barH - 4, bw - 8);
+      }
+    });
+  });
+
+  // X-axis: year/month ticks
+  ctx.fillStyle = '#8aaba9';
+  ctx.font = '10px Arial';
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = '#e8efed';
+  ctx.lineWidth = 0.5;
+
+  const startDate = new Date(minT);
+  const endDate = new Date(maxT);
+  const rangeMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + endDate.getMonth() - startDate.getMonth();
+
+  // Choose tick interval based on range
+  let tickMonths = 1;
+  if (rangeMonths > 60) tickMonths = 12;
+  else if (rangeMonths > 36) tickMonths = 6;
+  else if (rangeMonths > 18) tickMonths = 3;
+  else if (rangeMonths > 6) tickMonths = 2;
+
+  const axisY = pad.top + chartH + 4;
+  let tickDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  while (tickDate <= endDate) {
+    const x = tToX(tickDate.getTime());
+    if (x >= pad.left && x <= W - pad.right) {
+      ctx.beginPath();
+      ctx.moveTo(x, pad.top);
+      ctx.lineTo(x, pad.top + chartH);
+      ctx.stroke();
+      const label = tickMonths >= 12 ? tickDate.getFullYear().toString() : monthNames[tickDate.getMonth()] + ' ' + (tickDate.getFullYear() % 100);
+      ctx.fillText(label, x, axisY + 12);
+    }
+    tickDate.setMonth(tickDate.getMonth() + tickMonths);
+  }
+
+  // Today marker
+  const todayX = tToX(today.getTime());
+  if (todayX >= pad.left && todayX <= W - pad.right) {
+    ctx.strokeStyle = '#002C2A';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.3;
+    ctx.setLineDash([3, 2]);
+    ctx.beginPath();
+    ctx.moveTo(todayX, pad.top);
+    ctx.lineTo(todayX, pad.top + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#002C2A';
+    ctx.font = '8px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Today', todayX, pad.top - 1);
+  }
+
+  // Hover tooltip
+  canvas.onmousemove = function(e) {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const my = e.clientY - r.top;
+    const c = canvas._ciTimeline;
+    if (!c) return;
+    let hit = null;
+    c.rows.forEach((row, ri) => {
+      const ry = c.pad.top + ri * (c.barH + c.barGap);
+      if (my >= ry && my <= ry + c.barH) {
+        row.forEach(item => {
+          const x1 = c.tToX(item.start);
+          const x2 = c.tToX(item.end);
+          if (mx >= x1 && mx <= Math.max(x2, x1 + 3)) hit = item;
+        });
+      }
+    });
+    let tooltip = document.getElementById('ciTimelineTip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'ciTimelineTip';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.5;max-width:280px';
+      document.body.appendChild(tooltip);
+    }
+    if (!hit) { tooltip.style.display = 'none'; return; }
+    const sd = new Date(hit.start);
+    const ed = new Date(hit.end);
+    const fmt = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    tooltip.innerHTML = '<div style="font-weight:700;margin-bottom:2px">' + (hit.account || hit.name) + '</div>' +
+      '<div style="opacity:.7">' + hit.pf + '</div>' +
+      '<div>€' + Math.round(hit.bv).toLocaleString() + '</div>' +
+      '<div style="opacity:.7">' + fmt(sd) + ' → ' + fmt(ed) + '</div>';
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 12) + 'px';
+    tooltip.style.top = (e.clientY - 10) + 'px';
+  };
+  canvas.onmouseout = function() {
+    const t = document.getElementById('ciTimelineTip');
+    if (t) t.style.display = 'none';
+  };
+}
 
 function sortCI(colKey) {
   if (ciSortCol === colKey) ciSortDir *= -1;
