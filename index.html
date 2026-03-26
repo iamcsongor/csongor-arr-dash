@@ -583,9 +583,9 @@ th.col-info-wrap { display: table-cell; position: -webkit-sticky; position: stic
       <div class="ci-timeline-body" id="ciTimelineBody" style="display:none">
         <canvas id="ciTimelineCanvas" style="width:100%;height:200px;cursor:default"></canvas>
         <div class="ci-timeline-legend">
-          <span><span style="display:inline-block;width:12px;height:12px;background:#0D9B7A;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Licensing</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#9B59B6;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Credits</span>
-          <span><span style="display:inline-block;width:12px;height:12px;background:#3498DB;border-radius:2px;vertical-align:middle;margin-right:4px"></span>PAYG / B2</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#D64F91;border-radius:2px;vertical-align:middle;margin-right:4px"></span>License</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#1A6B5C;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Credit prepaid</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#3498DB;border-radius:2px;vertical-align:middle;margin-right:4px"></span>PAYG / TopUp</span>
         </div>
       </div>
     </div>
@@ -1435,9 +1435,13 @@ function drawCITimeline() {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
 
-  // Filter to relevant product families
-  const pfColors = { 'Licensing': '#0D9B7A', 'Credits': '#9B59B6', 'PAYG': '#3498DB' };
+  // Product family colors and stacking order (bottom to top)
+  const pfOrder = ['Licensing', 'Credits', 'PAYG'];
+  const pfColors = { 'Licensing': '#D64F91', 'Credits': '#1A6B5C', 'PAYG': '#3498DB' };
+  const pfLabels = { 'Licensing': 'License', 'Credits': 'Credit prepaid', 'PAYG': 'PAYG / TopUp' };
   const today = new Date();
+
+  // Parse contract items
   const items = currentUP.contract_items
     .filter(ci => {
       const pf = ci.product_family || '';
@@ -1447,7 +1451,6 @@ function drawCITimeline() {
       const pf = ci.product_family;
       let startD = ci.start_iso ? new Date(ci.start_iso) : null;
       let endD = ci.end_iso ? new Date(ci.end_iso) : null;
-      // PAYG/B2: if no end date, show 12 months from start
       if (startD && !endD) {
         endD = new Date(startD);
         endD.setMonth(endD.getMonth() + 12);
@@ -1461,11 +1464,11 @@ function drawCITimeline() {
         start: startD.getTime(),
         end: endD.getTime(),
         bv: ci.billed_value || 0,
-        account: ci.account || ''
+        account: ci.account || '',
+        pfIdx: pfOrder.indexOf(pf)
       };
     })
-    .filter(Boolean)
-    .sort((a, b) => a.start - b.start || a.end - b.end);
+    .filter(Boolean);
 
   if (items.length === 0) {
     canvas.height = 40 * dpr;
@@ -1479,115 +1482,199 @@ function drawCITimeline() {
     return;
   }
 
-  // Time range
-  const minT = Math.min(...items.map(i => i.start));
-  const maxT = Math.max(...items.map(i => i.end));
-  const pad = { top: 8, right: 16, bottom: 28, left: 16 };
-  const barH = 16;
-  const barGap = 2;
+  // ── Build time segments ──
+  // Collect all unique time boundaries
+  const boundaries = new Set();
+  items.forEach(it => { boundaries.add(it.start); boundaries.add(it.end); });
+  const sortedBounds = Array.from(boundaries).sort((a, b) => a - b);
 
-  // Pack bars into rows (greedy, no overlap)
-  const rows = [];
-  items.forEach(item => {
-    let placed = false;
-    for (let r = 0; r < rows.length; r++) {
-      const lastEnd = rows[r][rows[r].length - 1].end;
-      if (item.start >= lastEnd) {
-        rows[r].push(item);
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) rows.push([item]);
-  });
+  // For each segment, determine active items and their stacked positions
+  // Each segment: [segStart, segEnd, [{item, yBase, yTop}, ...]]
+  const segments = [];
+  let maxVal = 0;
 
-  const chartH = rows.length * (barH + barGap) - barGap;
+  for (let i = 0; i < sortedBounds.length - 1; i++) {
+    const segStart = sortedBounds[i];
+    const segEnd = sortedBounds[i + 1];
+    // Find active items in this segment
+    const active = items.filter(it => it.start <= segStart && it.end >= segEnd);
+    if (active.length === 0) continue;
+
+    // Sort by product family order (Licensing first / bottom), then by billed value desc
+    active.sort((a, b) => a.pfIdx - b.pfIdx || b.bv - a.bv);
+
+    // Stack: each item's height = its billed value
+    let yAcc = 0;
+    const stacked = active.map(it => {
+      const base = yAcc;
+      yAcc += it.bv;
+      return { item: it, yBase: base, yTop: yAcc };
+    });
+
+    if (yAcc > maxVal) maxVal = yAcc;
+    segments.push({ start: segStart, end: segEnd, stacked: stacked, total: yAcc });
+  }
+
+  if (segments.length === 0 || maxVal === 0) {
+    canvas.height = 40 * dpr;
+    canvas.style.height = '40px';
+    canvas.width = rect.width * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#8aaba9';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('No displayable contract timeline data', rect.width / 2, 22);
+    return;
+  }
+
+  // ── Layout ──
+  const minT = sortedBounds[0];
+  const maxT = sortedBounds[sortedBounds.length - 1];
+  const yAxisW = 60;  // space for Y-axis labels
+  const pad = { top: 20, right: 16, bottom: 32, left: yAxisW + 8 };
+  const chartH = 220;  // fixed chart area height
   const totalH = pad.top + chartH + pad.bottom;
-  canvas.style.height = totalH + 'px';
-  canvas.width = rect.width * dpr;
-  canvas.height = totalH * dpr;
-  ctx.scale(dpr, dpr);
   const W = rect.width;
   const cW = W - pad.left - pad.right;
 
-  function tToX(t) { return pad.left + ((t - minT) / (maxT - minT)) * cW; }
-
+  canvas.style.height = totalH + 'px';
+  canvas.width = W * dpr;
+  canvas.height = totalH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, totalH);
 
-  // Draw bars
-  canvas._ciTimeline = { rows, tToX, pad, barH, barGap, minT, maxT };
-  rows.forEach((row, ri) => {
-    const y = pad.top + ri * (barH + barGap);
-    row.forEach(item => {
-      const x1 = tToX(item.start);
-      const x2 = tToX(item.end);
-      const bw = Math.max(x2 - x1, 3);
-      // Bar
-      ctx.fillStyle = item.color;
-      ctx.globalAlpha = 0.75;
-      ctx.beginPath();
-      const r = Math.min(3, bw / 2, barH / 2);
-      ctx.moveTo(x1 + r, y);
-      ctx.arcTo(x1 + bw, y, x1 + bw, y + barH, r);
-      ctx.arcTo(x1 + bw, y + barH, x1, y + barH, r);
-      ctx.arcTo(x1, y + barH, x1, y, r);
-      ctx.arcTo(x1, y, x1 + bw, y, r);
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalAlpha = 1;
+  // Nice Y-axis max (round up to nearest nice value)
+  function niceMax(v) {
+    if (v <= 0) return 1000;
+    const mag = Math.pow(10, Math.floor(Math.log10(v)));
+    const norm = v / mag;
+    if (norm <= 1) return mag;
+    if (norm <= 2) return 2 * mag;
+    if (norm <= 5) return 5 * mag;
+    return 10 * mag;
+  }
+  const yMax = niceMax(maxVal * 1.1);
 
-      // Label inside bar if wide enough
-      if (bw > 50) {
+  function tToX(t) { return pad.left + ((t - minT) / (maxT - minT)) * cW; }
+  function vToY(v) { return pad.top + chartH - (v / yMax) * chartH; }
+
+  // ── Y-axis grid lines and labels ──
+  const yTicks = 5;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.font = '10px Arial';
+  for (let i = 0; i <= yTicks; i++) {
+    const v = (yMax / yTicks) * i;
+    const y = vToY(v);
+    // Grid line
+    ctx.strokeStyle = '#e8efed';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = '#8aaba9';
+    let lbl;
+    if (v >= 1000000) lbl = (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'M';
+    else if (v >= 1000) lbl = (v / 1000).toFixed(v % 1000 === 0 ? 0 : 0) + 'k';
+    else lbl = Math.round(v).toString();
+    ctx.fillText('€' + lbl, pad.left - 6, y);
+  }
+
+  // ── Draw stacked bars per segment ──
+  // Store drawable rects for hover detection
+  const drawableRects = [];
+
+  segments.forEach(seg => {
+    const x1 = tToX(seg.start);
+    const x2 = tToX(seg.end);
+    const bw = Math.max(x2 - x1, 1);
+
+    seg.stacked.forEach(s => {
+      const yBot = vToY(s.yBase);
+      const yTop = vToY(s.yTop);
+      const h = yBot - yTop;
+      if (h < 0.5) return;
+
+      ctx.fillStyle = s.item.color;
+      ctx.globalAlpha = 0.82;
+      ctx.fillRect(x1, yTop, bw, h);
+
+      // White border between segments
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 0.5;
+      ctx.globalAlpha = 1;
+      ctx.strokeRect(x1, yTop, bw, h);
+
+      // Label inside bar if big enough
+      if (bw > 60 && h > 14) {
         ctx.fillStyle = '#fff';
-        ctx.font = '9px Arial';
-        ctx.textAlign = 'left';
-        const label = (item.account ? item.account.substring(0, 20) : '') + ' €' + Math.round(item.bv).toLocaleString();
-        ctx.fillText(label, x1 + 4, y + barH - 4, bw - 8);
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.95;
+        const valK = s.item.bv >= 1000 ? Math.round(s.item.bv / 1000) + 'k' : Math.round(s.item.bv).toString();
+        const lbl = '€' + valK + ' ' + (pfLabels[s.item.pf] || s.item.pf);
+        ctx.fillText(lbl, x1 + bw / 2, yTop + h / 2, bw - 8);
+        ctx.globalAlpha = 1;
       }
+
+      // Store rect for hover
+      drawableRects.push({
+        x: x1, y: yTop, w: bw, h: h,
+        item: s.item, yBase: s.yBase, yTop: s.yTop,
+        segStart: seg.start, segEnd: seg.end, segTotal: seg.total
+      });
     });
   });
 
-  // X-axis: year/month ticks
-  ctx.fillStyle = '#8aaba9';
-  ctx.font = '10px Arial';
-  ctx.textAlign = 'center';
-  ctx.strokeStyle = '#e8efed';
-  ctx.lineWidth = 0.5;
+  ctx.globalAlpha = 1;
 
+  // ── X-axis ticks ──
   const startDate = new Date(minT);
   const endDate = new Date(maxT);
   const rangeMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + endDate.getMonth() - startDate.getMonth();
-
-  // Choose tick interval based on range
   let tickMonths = 1;
   if (rangeMonths > 60) tickMonths = 12;
   else if (rangeMonths > 36) tickMonths = 6;
   else if (rangeMonths > 18) tickMonths = 3;
   else if (rangeMonths > 6) tickMonths = 2;
 
-  const axisY = pad.top + chartH + 4;
-  let tickDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  ctx.fillStyle = '#8aaba9';
+  ctx.font = '10px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let tickDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
   while (tickDate <= endDate) {
     const x = tToX(tickDate.getTime());
     if (x >= pad.left && x <= W - pad.right) {
+      // Vertical grid line (subtle)
+      ctx.strokeStyle = '#e8efed';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(x, pad.top);
       ctx.lineTo(x, pad.top + chartH);
       ctx.stroke();
+      // Label
       const label = tickMonths >= 12 ? tickDate.getFullYear().toString() : monthNames[tickDate.getMonth()] + ' ' + (tickDate.getFullYear() % 100);
-      ctx.fillText(label, x, axisY + 12);
+      ctx.fillText(label, x, pad.top + chartH + 6);
     }
     tickDate.setMonth(tickDate.getMonth() + tickMonths);
   }
 
-  // Today marker
-  const todayX = tToX(today.getTime());
-  if (todayX >= pad.left && todayX <= W - pad.right) {
+  // ── Today marker ──
+  const todayT = today.getTime();
+  if (todayT >= minT && todayT <= maxT) {
+    const todayX = tToX(todayT);
     ctx.strokeStyle = '#002C2A';
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.3;
-    ctx.setLineDash([3, 2]);
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.5;
+    ctx.setLineDash([4, 3]);
     ctx.beginPath();
     ctx.moveTo(todayX, pad.top);
     ctx.lineTo(todayX, pad.top + chartH);
@@ -1595,51 +1682,102 @@ function drawCITimeline() {
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#002C2A';
-    ctx.font = '8px Arial';
+    ctx.font = 'bold 9px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('Today', todayX, pad.top - 1);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Today', todayX, pad.top - 2);
+
+    // Show total ARR at today
+    const todaySeg = segments.find(s => s.start <= todayT && s.end > todayT);
+    if (todaySeg) {
+      const arrY = vToY(todaySeg.total);
+      ctx.fillStyle = '#002C2A';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      const arrLbl = '€' + (todaySeg.total >= 1000 ? Math.round(todaySeg.total / 1000) + 'k' : Math.round(todaySeg.total).toString());
+      ctx.fillText(arrLbl, todayX + 4, arrY - 2);
+    }
   }
 
-  // Hover tooltip
+  // ── Hover tooltip ──
+  canvas._ciTimeline = { drawableRects, tToX, vToY, pad, chartH, minT, maxT, segments };
+
   canvas.onmousemove = function(e) {
     const r = canvas.getBoundingClientRect();
     const mx = e.clientX - r.left;
     const my = e.clientY - r.top;
     const c = canvas._ciTimeline;
     if (!c) return;
+
+    // Find which rect the mouse is over
     let hit = null;
-    c.rows.forEach((row, ri) => {
-      const ry = c.pad.top + ri * (c.barH + c.barGap);
-      if (my >= ry && my <= ry + c.barH) {
-        row.forEach(item => {
-          const x1 = c.tToX(item.start);
-          const x2 = c.tToX(item.end);
-          if (mx >= x1 && mx <= Math.max(x2, x1 + 3)) hit = item;
-        });
+    for (let i = c.drawableRects.length - 1; i >= 0; i--) {
+      const dr = c.drawableRects[i];
+      if (mx >= dr.x && mx <= dr.x + dr.w && my >= dr.y && my <= dr.y + dr.h) {
+        hit = dr;
+        break;
       }
-    });
+    }
+
+    // If no exact hit, show segment total at this X position
+    let segHit = null;
+    if (!hit && mx >= c.pad.left && mx <= c.pad.left + (rect.width - c.pad.left - c.pad.right)) {
+      const t = c.minT + ((mx - c.pad.left) / (rect.width - c.pad.left - c.pad.right)) * (c.maxT - c.minT);
+      segHit = c.segments.find(s => s.start <= t && s.end > t);
+    }
+
     let tooltip = document.getElementById('ciTimelineTip');
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.id = 'ciTimelineTip';
-      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.5;max-width:280px';
+      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.5;max-width:320px';
       document.body.appendChild(tooltip);
     }
-    if (!hit) { tooltip.style.display = 'none'; return; }
-    const sd = new Date(hit.start);
-    const ed = new Date(hit.end);
+
+    if (!hit && !segHit) { tooltip.style.display = 'none'; canvas.style.cursor = 'default'; return; }
+    canvas.style.cursor = 'pointer';
+
     const fmt = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    tooltip.innerHTML = '<div style="font-weight:700;margin-bottom:2px">' + (hit.account || hit.name) + '</div>' +
-      '<div style="opacity:.7">' + hit.pf + '</div>' +
-      '<div>€' + Math.round(hit.bv).toLocaleString() + '</div>' +
-      '<div style="opacity:.7">' + fmt(sd) + ' → ' + fmt(ed) + '</div>';
+    const fmtV = v => '€' + Math.round(v).toLocaleString();
+
+    if (hit) {
+      const sd = new Date(hit.segStart);
+      const ed = new Date(hit.segEnd);
+      const isd = new Date(hit.item.start);
+      const ied = new Date(hit.item.end);
+      tooltip.innerHTML =
+        '<div style="font-weight:700;margin-bottom:2px">' + (hit.item.account || hit.item.name) + '</div>' +
+        '<div><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + hit.item.color + ';margin-right:4px;vertical-align:middle"></span>' + (pfLabels[hit.item.pf] || hit.item.pf) + '</div>' +
+        '<div style="font-weight:700;font-size:13px;margin:2px 0">' + fmtV(hit.item.bv) + '</div>' +
+        '<div style="opacity:.7">' + fmt(isd) + ' → ' + fmt(ied) + '</div>' +
+        '<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.2)">Total at this point: <b>' + fmtV(hit.segTotal) + '</b></div>';
+    } else {
+      const sd = new Date(segHit.start);
+      let lines = '<div style="font-weight:700;margin-bottom:4px">Total: ' + fmtV(segHit.total) + '</div>';
+      lines += '<div style="opacity:.7;margin-bottom:4px">' + fmt(sd) + '</div>';
+      // Breakdown by pf
+      const byPf = {};
+      segHit.stacked.forEach(s => {
+        if (!byPf[s.item.pf]) byPf[s.item.pf] = 0;
+        byPf[s.item.pf] += s.item.bv;
+      });
+      pfOrder.forEach(pf => {
+        if (byPf[pf]) {
+          lines += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + pfColors[pf] + ';margin-right:4px;vertical-align:middle"></span>' + (pfLabels[pf] || pf) + ': ' + fmtV(byPf[pf]) + '</div>';
+        }
+      });
+      tooltip.innerHTML = lines;
+    }
+
     tooltip.style.display = 'block';
-    tooltip.style.left = (e.clientX + 12) + 'px';
+    tooltip.style.left = Math.min(e.clientX + 12, window.innerWidth - 340) + 'px';
     tooltip.style.top = (e.clientY - 10) + 'px';
   };
   canvas.onmouseout = function() {
     const t = document.getElementById('ciTimelineTip');
     if (t) t.style.display = 'none';
+    canvas.style.cursor = 'default';
   };
 }
 
