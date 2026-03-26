@@ -1468,10 +1468,10 @@ function switchView(view) {
 function renderCEODashboard() {
   // KPIs
   const kpiRow = document.getElementById('ceoKpiRow');
-  // Testing revenue YTD
-  const testTY = CEO.ytd_testing_this_year || 0;
-  const testLY = CEO.ytd_testing_last_year || 0;
-  const testGrowth = CEO.ytd_testing_growth;
+  // Testing revenue YTD (use month-level totals — same as Revenue Recon)
+  const testTY = CEO.tytd || 0;
+  const testLY = CEO.lytd || 0;
+  const testGrowth = CEO.ytd_growth;
   const testGrowthCls = testGrowth != null && testGrowth >= 0 ? 'positive' : 'negative';
   const testGrowthArrow = testGrowth != null ? (testGrowth >= 0 ? '▲' : '▼') : '';
   const testGrowthStr = testGrowth != null ? ((testGrowth >= 0 ? '+' : '') + testGrowth + '%') : '—';
