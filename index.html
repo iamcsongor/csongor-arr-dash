@@ -3253,23 +3253,25 @@ async function loadData() {
         // Update meta
         const metaEl = document.getElementById('metaInfo');
         const metaText = document.getElementById('metaText');
-        // Show data last updated with relative time
-        const extractedISO = full.meta && full.meta.extracted ? full.meta.extracted : null;
-        const dlu = full.meta && full.meta.data_last_updated ? full.meta.data_last_updated : '';
-        if (metaText && extractedISO) {
-          const extractedDate = new Date(extractedISO);
+        // Show data last updated (from Summary C2) with relative time
+        const dluISO = full.meta && full.meta.data_last_updated ? full.meta.data_last_updated : null;
+        const fallbackISO = full.meta && full.meta.extracted ? full.meta.extracted : null;
+        const tsISO = dluISO || fallbackISO;
+        if (metaText && tsISO) {
+          const tsDate = new Date(tsISO);
           const now = new Date();
-          const diffMs = now - extractedDate;
+          const diffMs = now - tsDate;
           const diffMins = Math.round(diffMs / 60000);
           let ago = '';
-          if (diffMins < 1) ago = 'just now';
+          if (diffMins < 0) ago = 'just now';
+          else if (diffMins < 1) ago = 'just now';
           else if (diffMins < 60) ago = diffMins + ' min ago';
-          else if (diffMins < 1440) ago = Math.round(diffMins / 60) + 'h ago';
-          else ago = Math.round(diffMins / 1440) + 'd ago';
-          const dateStr = extractedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + extractedDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          else if (diffMins < 1440) ago = Math.floor(diffMins / 60) + 'h ' + (diffMins % 60) + 'min ago';
+          else { const d = Math.floor(diffMins / 1440); const h = Math.floor((diffMins % 1440) / 60); ago = d + 'd ' + h + 'h ago'; }
+          const dateStr = tsDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + tsDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
           metaText.textContent = 'Data Last Updated: ' + dateStr + ' (' + ago + ')';
         } else if (metaText) {
-          metaText.textContent = 'Data Last Updated: ' + (dlu || 'N/A');
+          metaText.textContent = 'Data Last Updated: N/A';
         }
         // Initialize all views
         if (DATA.length) init();
