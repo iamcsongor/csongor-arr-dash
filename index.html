@@ -1713,16 +1713,16 @@ function renderCITimeline() {
     const h = yBot - yTop;
     if (h < 1) return;
 
-    ctx.fillStyle = p.item.color; ctx.globalAlpha = 0.8;
+    ctx.fillStyle = p.item.color; ctx.globalAlpha = 1;
     ctx.fillRect(x1, yTop, bw, h);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
     ctx.strokeRect(x1, yTop, bw, h);
 
     // Labels
     if (bw > 50 && h > 13) {
       ctx.fillStyle = '#fff';
       ctx.font = h > 20 ? 'bold 10px Arial' : '9px Arial';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 0.95;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const valK = p.item.arrVal >= 1000 ? Math.round(p.item.arrVal / 1000) + 'k' : Math.round(p.item.arrVal).toString();
       let lbl = '€' + valK;
       if (bw > 90) lbl += ' ' + (pfLabels[p.item.pf] || p.item.pf);
@@ -1785,9 +1785,21 @@ function renderCITimeline() {
 
 function calcB1B2ARR(t) {
   // B1 ARR: any active Licensing + any active B1 CI at time t
-  // B2 ARR: any B2 CI that started in the last 12 months at time t
+  // B2 ARR: B2 CIs that started in the last 12 months AND started after
+  //         the currently active B1 Credits CI's start date
   if (!ciTL.items) return { b1: 0, b2: 0 };
   const MS_12M = 365.25 * 86400000;
+
+  // Find the currently active B1 Credits CI (latest start date if multiple)
+  let activeB1CreditsStart = null;
+  ciTL.items.forEach(it => {
+    if (it.bucket === 'B1' && it.pf === 'Credits' && it.start <= t && it.end > t) {
+      if (activeB1CreditsStart === null || it.start > activeB1CreditsStart) {
+        activeB1CreditsStart = it.start;
+      }
+    }
+  });
+
   let b1 = 0, b2 = 0;
   ciTL.items.forEach(it => {
     const active = it.start <= t && it.end > t;
@@ -1795,8 +1807,12 @@ function calcB1B2ARR(t) {
       // B1: any active licence + any active B1 CI
       if (active) b1 += it.arrVal;
     } else if (it.bucket === 'B2') {
-      // B2: started in last 12 months at this point AND still active
-      if (active && it.start >= t - MS_12M) b2 += it.arrVal;
+      // B2: active + started in last 12 months + started after active B1 Credits CI start
+      if (active && it.start >= t - MS_12M) {
+        if (activeB1CreditsStart === null || it.start >= activeB1CreditsStart) {
+          b2 += it.arrVal;
+        }
+      }
     }
   });
   return { b1, b2 };
