@@ -1432,47 +1432,37 @@ const CI_COLS = [
   { key: 'end_date', label: 'End' },
 ];
 
-// ── Contract Timeline ──
+// ── Contract Timeline (interactive zoom/pan) ──
+var ciTL = { items: null, placed: null, viewStart: 0, viewEnd: 0, dataMin: 0, dataMax: 0, isDragging: false, dragStartX: 0, dragStartView: 0 };
+var ciTLOverlay = null; // separate overlay canvas for crosshair
+
 function toggleCITimeline() {
   const body = document.getElementById('ciTimelineBody');
   const arrow = document.getElementById('ciTimelineArrow');
   const open = body.style.display === 'none';
   body.style.display = open ? 'block' : 'none';
   arrow.classList.toggle('open', open);
-  if (open) drawCITimeline();
+  if (open) initCITimeline();
 }
 
-function drawCITimeline() {
+function initCITimeline() {
   if (!currentUP || !currentUP.contract_items) return;
   const canvas = document.getElementById('ciTimelineCanvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
 
-  // Color palette: bucket + product family
-  // B1 = warm tones, B2 = cool tones
   const colorMap = {
-    'B1:Licensing': '#D64F91',   // pink
-    'B1:Credits':   '#E8845A',   // coral/orange
-    'B1:PAYG':      '#F0A844',   // amber
-    'B2:Licensing': '#1A6B5C',   // dark teal
-    'B2:Credits':   '#2E86AB',   // ocean blue
-    'B2:PAYG':      '#7B68EE',   // medium slate blue
+    'B1:Licensing': '#D64F91', 'B1:Credits': '#E8845A', 'B1:PAYG': '#F0A844',
+    'B2:Licensing': '#1A6B5C', 'B2:Credits': '#2E86AB', 'B2:PAYG': '#7B68EE',
   };
-  const pfLabels = { 'Licensing': 'License', 'Credits': 'Credit', 'PAYG': 'PAYG' };
   const pfOrder = ['Licensing', 'Credits', 'PAYG'];
   const bucketOrder = ['B1', 'B2'];
-  const today = new Date();
 
-  // ── Parse & filter contract items ──
+  // Parse & filter
   const items = currentUP.contract_items
     .filter(ci => {
       const pf = ci.product_family || '';
       const bk = ci.bucket || '';
-      // Only Licensing, Credits, PAYG  (exclude Managed Services, etc.)
       if (pf !== 'Licensing' && pf !== 'Credits' && pf !== 'PAYG') return false;
-      // Only B1 or B2 buckets
       if (bk !== 'B1' && bk !== 'B2') return false;
       return true;
     })
@@ -1481,108 +1471,199 @@ function drawCITimeline() {
       const bk = ci.bucket;
       let startD = ci.start_iso ? new Date(ci.start_iso) : null;
       let endD = ci.end_iso ? new Date(ci.end_iso) : null;
-      // PAYG: only care about start date, always 12 months
       if (pf === 'PAYG') {
         if (!startD) return null;
-        endD = new Date(startD);
-        endD.setMonth(endD.getMonth() + 12);
+        endD = new Date(startD); endD.setMonth(endD.getMonth() + 12);
       } else {
-        // Licensing/Credits: need both start and end
         if (!startD || !endD) return null;
       }
-      // ARR contribution: use arr_b1 for B1 items, arr_b2 for B2 items
       const arrVal = bk === 'B1' ? (ci.arr_b1 || 0) : (ci.arr_b2 || 0);
       if (arrVal <= 0) return null;
-
       return {
-        ciRef: ci,              // reference to original CI for table highlighting
-        ciIdx: idx,             // index in contract_items array
-        name: ci.name || '',
-        account: ci.account || '',
-        pf: pf,
-        bucket: bk,
-        color: colorMap[bk + ':' + pf] || '#5e8885',
-        start: startD.getTime(),
-        end: endD.getTime(),
-        arrVal: arrVal,
-        bv: ci.billed_value || 0,
-        pfIdx: pfOrder.indexOf(pf),
-        bkIdx: bucketOrder.indexOf(bk),
+        ciRef: ci, name: ci.name || '', account: ci.account || '',
+        pf, bucket: bk, color: colorMap[bk + ':' + pf] || '#5e8885',
+        start: startD.getTime(), end: endD.getTime(),
+        arrVal, bv: ci.billed_value || 0,
+        pfIdx: pfOrder.indexOf(pf), bkIdx: bucketOrder.indexOf(bk),
         ciId: ci.ci_id || ''
       };
     })
     .filter(Boolean);
 
   if (items.length === 0) {
-    canvas.height = 40 * dpr;
-    canvas.style.height = '40px';
-    canvas.width = rect.width * dpr;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.height = 40 * dpr; canvas.style.height = '40px';
+    canvas.width = canvas.getBoundingClientRect().width * dpr;
     ctx.scale(dpr, dpr);
-    ctx.fillStyle = '#8aaba9';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('No B1/B2 license, credit or PAYG items to display', rect.width / 2, 22);
+    ctx.fillStyle = '#8aaba9'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('No B1/B2 license, credit or PAYG items to display', canvas.getBoundingClientRect().width / 2, 22);
     return;
   }
 
-  // ── Sort items for placement: B1 before B2, then pf order, then largest first ──
+  // Sort & place
   items.sort((a, b) => a.bkIdx - b.bkIdx || a.pfIdx - b.pfIdx || b.arrVal - a.arrVal);
-
-  // ── Place rectangles with no overlap ──
-  // Each placed rect: {item, x1t, x2t (time), yBase (value), yTop (value)}
   const placed = [];
-
   items.forEach(item => {
-    // Find the lowest Y position where this item fits without overlapping
-    // For each existing placed item that overlaps in time, we need to avoid its Y range
-    const overlapping = placed.filter(p =>
-      p.x1t < item.end && p.x2t > item.start
-    );
-
-    // Build list of occupied Y intervals in this time range
-    // Sort by yBase ascending
-    const occupied = overlapping.map(p => ({ yBase: p.yBase, yTop: p.yTop }))
-      .sort((a, b) => a.yBase - b.yBase);
-
-    // Find first gap from bottom where item fits
+    const overlapping = placed.filter(p => p.x1t < item.end && p.x2t > item.start);
+    const occupied = overlapping.map(p => ({ yBase: p.yBase, yTop: p.yTop })).sort((a, b) => a.yBase - b.yBase);
     let yBase = 0;
     for (const occ of occupied) {
-      if (yBase + item.arrVal <= occ.yBase + 0.001) {
-        // Fits below this occupied block
-        break;
-      }
-      // Move above this occupied block
+      if (yBase + item.arrVal <= occ.yBase + 0.001) break;
       yBase = Math.max(yBase, occ.yTop);
     }
-
-    placed.push({
-      item: item,
-      x1t: item.start,
-      x2t: item.end,
-      yBase: yBase,
-      yTop: yBase + item.arrVal
-    });
+    placed.push({ item, x1t: item.start, x2t: item.end, yBase, yTop: yBase + item.arrVal });
   });
 
-  // ── Compute layout dimensions ──
-  const minT = Math.min(...placed.map(p => p.x1t));
-  const maxT = Math.max(...placed.map(p => p.x2t));
-  const maxVal = Math.max(...placed.map(p => p.yTop));
+  const dataMin = Math.min(...placed.map(p => p.x1t));
+  const dataMax = Math.max(...placed.map(p => p.x2t));
 
+  // Default view: 2.5 years centered on today, clamped to data
+  const MS_30M = 30 * 2.5 * 86400000; // ~2.5 years in ms
+  const MAX_WINDOW = 2.5 * 365.25 * 86400000;
+  const now = Date.now();
+  let viewStart = now - MAX_WINDOW / 2;
+  let viewEnd = now + MAX_WINDOW / 2;
+  // Clamp to data range but keep 2.5yr window
+  if (viewStart < dataMin - 30 * 86400000) { viewStart = dataMin - 30 * 86400000; viewEnd = viewStart + MAX_WINDOW; }
+  if (viewEnd > dataMax + 30 * 86400000) { viewEnd = dataMax + 30 * 86400000; viewStart = viewEnd - MAX_WINDOW; }
+
+  ciTL.items = items;
+  ciTL.placed = placed;
+  ciTL.viewStart = viewStart;
+  ciTL.viewEnd = viewEnd;
+  ciTL.dataMin = dataMin;
+  ciTL.dataMax = dataMax;
+
+  // Create overlay canvas for crosshair (avoids full redraw on mousemove)
+  let overlay = document.getElementById('ciTimelineOverlay');
+  if (!overlay) {
+    overlay = document.createElement('canvas');
+    overlay.id = 'ciTimelineOverlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;pointer-events:none;';
+    canvas.parentElement.style.position = 'relative';
+    canvas.parentElement.appendChild(overlay);
+  }
+  ciTLOverlay = overlay;
+
+  // Bindinteractions (only once)
+  if (!canvas._ciTLBound) {
+    canvas._ciTLBound = true;
+
+    canvas.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const pad = ciTL._pad || { left: 68 };
+      const cW = rect.width - pad.left - (ciTL._pad ? ciTL._pad.right : 16);
+      const frac = Math.max(0, Math.min(1, (mx - pad.left) / cW));
+      const tAtMouse = ciTL.viewStart + frac * (ciTL.viewEnd - ciTL.viewStart);
+
+      const zoomFactor = e.deltaY > 0 ? 1.2 : 1 / 1.2;
+      const curRange = ciTL.viewEnd - ciTL.viewStart;
+      let newRange = curRange * zoomFactor;
+
+      const MAX_W = 2.5 * 365.25 * 86400000;
+      const MIN_W = 60 * 86400000; // ~2 months minimum zoom
+      newRange = Math.max(MIN_W, Math.min(MAX_W, newRange));
+
+      ciTL.viewStart = tAtMouse - frac * newRange;
+      ciTL.viewEnd = tAtMouse + (1 - frac) * newRange;
+      renderCITimeline();
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      ciTL.isDragging = true;
+      ciTL.dragStartX = e.clientX;
+      ciTL.dragStartViewStart = ciTL.viewStart;
+      ciTL.dragStartViewEnd = ciTL.viewEnd;
+      canvas.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', function(e) {
+      if (!ciTL.isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      const pad = ciTL._pad || { left: 68, right: 16 };
+      const cW = rect.width - pad.left - pad.right;
+      const dx = e.clientX - ciTL.dragStartX;
+      const dtPerPx = (ciTL.dragStartViewEnd - ciTL.dragStartViewStart) / cW;
+      const dt = -dx * dtPerPx;
+      ciTL.viewStart = ciTL.dragStartViewStart + dt;
+      ciTL.viewEnd = ciTL.dragStartViewEnd + dt;
+      renderCITimeline();
+    });
+
+    window.addEventListener('mouseup', function() {
+      if (ciTL.isDragging) {
+        ciTL.isDragging = false;
+        canvas.style.cursor = 'crosshair';
+      }
+    });
+
+    // Crosshair on mousemove
+    canvas.addEventListener('mousemove', function(e) {
+      if (ciTL.isDragging) { hideCITooltip(); return; }
+      drawCICrosshair(e);
+    });
+
+    canvas.addEventListener('mouseleave', function() {
+      clearCICrosshair();
+      hideCITooltip();
+    });
+
+    canvas.addEventListener('click', function(e) {
+      if (ciTL.isDragging) return;
+      handleCIClick(e);
+    });
+  }
+
+  renderCITimeline();
+}
+
+function renderCITimeline() {
+  const canvas = document.getElementById('ciTimelineCanvas');
+  if (!canvas || !ciTL.placed) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const placed = ciTL.placed;
+
+  const pfLabels = { 'Licensing': 'License', 'Credits': 'Credit', 'PAYG': 'PAYG' };
   const yAxisW = 60;
   const pad = { top: 20, right: 16, bottom: 32, left: yAxisW + 8 };
+  ciTL._pad = pad;
   const chartH = Math.max(200, Math.min(320, placed.length * 12));
   const totalH = pad.top + chartH + pad.bottom;
   const W = rect.width;
   const cW = W - pad.left - pad.right;
 
   canvas.style.height = totalH + 'px';
+  canvas.style.cursor = ciTL.isDragging ? 'grabbing' : 'crosshair';
   canvas.width = W * dpr;
   canvas.height = totalH * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, totalH);
 
-  // Nice Y-axis max
+  // Sync overlay size
+  if (ciTLOverlay) {
+    ciTLOverlay.width = W * dpr;
+    ciTLOverlay.height = totalH * dpr;
+    ciTLOverlay.style.height = totalH + 'px';
+  }
+
+  const vStart = ciTL.viewStart;
+  const vEnd = ciTL.viewEnd;
+
+  // Y-axis: auto-scale to visible items
+  let visMaxVal = 0;
+  placed.forEach(p => {
+    if (p.x2t > vStart && p.x1t < vEnd) {
+      if (p.yTop > visMaxVal) visMaxVal = p.yTop;
+    }
+  });
+  if (visMaxVal === 0) visMaxVal = 100000;
+
   function niceMax(v) {
     if (v <= 0) return 1000;
     const mag = Math.pow(10, Math.floor(Math.log10(v)));
@@ -1592,78 +1673,65 @@ function drawCITimeline() {
     if (norm <= 5) return 5 * mag;
     return 10 * mag;
   }
-  const yMax = niceMax(maxVal * 1.08);
+  const yMax = niceMax(visMaxVal * 1.15);
 
-  function tToX(t) { return pad.left + ((t - minT) / (maxT - minT)) * cW; }
+  function tToX(t) { return pad.left + ((t - vStart) / (vEnd - vStart)) * cW; }
   function vToY(v) { return pad.top + chartH - (v / yMax) * chartH; }
+  function xToT(x) { return vStart + ((x - pad.left) / cW) * (vEnd - vStart); }
 
-  // ── Y-axis grid lines and labels ──
+  ciTL._tToX = tToX;
+  ciTL._vToY = vToY;
+  ciTL._xToT = xToT;
+  ciTL._chartH = chartH;
+  ciTL._yMax = yMax;
+
+  // Y-axis grid
   const yTicks = 5;
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.font = '10px Arial';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '10px Arial';
   for (let i = 0; i <= yTicks; i++) {
     const v = (yMax / yTicks) * i;
     const y = vToY(v);
-    ctx.strokeStyle = '#e8efed';
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(W - pad.right, y);
-    ctx.stroke();
+    ctx.strokeStyle = '#e8efed'; ctx.lineWidth = 0.5; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
     ctx.fillStyle = '#8aaba9';
     let lbl;
-    if (v >= 1000000) lbl = (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'M';
+    if (v >= 1000000) lbl = (v / 1000000).toFixed(1) + 'M';
     else if (v >= 1000) lbl = Math.round(v / 1000) + 'k';
     else lbl = Math.round(v).toString();
     ctx.fillText('€' + lbl, pad.left - 6, y);
   }
 
-  // ── Draw rectangles ──
+  // Draw visible rectangles
   const drawableRects = [];
-
   placed.forEach(p => {
-    const x1 = tToX(p.x1t);
-    const x2 = tToX(p.x2t);
-    const bw = Math.max(x2 - x1, 2);
+    if (p.x2t < vStart || p.x1t > vEnd) return; // off screen
+    const x1 = Math.max(tToX(p.x1t), pad.left);
+    const x2 = Math.min(tToX(p.x2t), W - pad.right);
+    const bw = Math.max(x2 - x1, 1);
     const yBot = vToY(p.yBase);
     const yTop = vToY(p.yTop);
     const h = yBot - yTop;
     if (h < 1) return;
 
-    // Fill
-    ctx.fillStyle = p.item.color;
-    ctx.globalAlpha = 0.78;
+    ctx.fillStyle = p.item.color; ctx.globalAlpha = 0.8;
     ctx.fillRect(x1, yTop, bw, h);
-
-    // Border
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.globalAlpha = 1;
     ctx.strokeRect(x1, yTop, bw, h);
 
-    // Label inside bar if big enough
-    if (bw > 55 && h > 13) {
+    // Labels
+    if (bw > 50 && h > 13) {
       ctx.fillStyle = '#fff';
       ctx.font = h > 20 ? 'bold 10px Arial' : '9px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.globalAlpha = 0.95;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 0.95;
       const valK = p.item.arrVal >= 1000 ? Math.round(p.item.arrVal / 1000) + 'k' : Math.round(p.item.arrVal).toString();
-      const bucketTag = p.item.bucket;
       let lbl = '€' + valK;
-      if (bw > 100) lbl += ' ' + (pfLabels[p.item.pf] || p.item.pf);
-      if (bw > 160 && h > 18) lbl += ' (' + bucketTag + ')';
+      if (bw > 90) lbl += ' ' + (pfLabels[p.item.pf] || p.item.pf);
+      if (bw > 150 && h > 18) lbl += ' (' + p.item.bucket + ')';
       ctx.fillText(lbl, x1 + bw / 2, yTop + h / 2, bw - 8);
       ctx.globalAlpha = 1;
     }
-
-    // Bucket badge in corner for small bars
-    if (bw > 25 && h > 10 && !(bw > 160 && h > 18)) {
-      ctx.font = 'bold 7px Arial';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
+    if (bw > 22 && h > 10 && !(bw > 150 && h > 18)) {
+      ctx.font = 'bold 7px Arial'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.fillText(p.item.bucket, x1 + bw - 3, yTop + 2);
     }
@@ -1674,176 +1742,229 @@ function drawCITimeline() {
       startT: p.x1t, endT: p.x2t
     });
   });
-
   ctx.globalAlpha = 1;
+  ciTL._drawableRects = drawableRects;
 
-  // ── X-axis ticks ──
-  const startDate = new Date(minT);
-  const endDate = new Date(maxT);
-  const rangeMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + endDate.getMonth() - startDate.getMonth();
+  // X-axis ticks
+  const vStartDate = new Date(vStart);
+  const vEndDate = new Date(vEnd);
+  const rangeMonths = (vEndDate.getFullYear() - vStartDate.getFullYear()) * 12 + vEndDate.getMonth() - vStartDate.getMonth();
   let tickMonths = 1;
-  if (rangeMonths > 60) tickMonths = 12;
-  else if (rangeMonths > 36) tickMonths = 6;
-  else if (rangeMonths > 18) tickMonths = 3;
+  if (rangeMonths > 24) tickMonths = 6;
+  else if (rangeMonths > 12) tickMonths = 3;
   else if (rangeMonths > 6) tickMonths = 2;
 
-  ctx.fillStyle = '#8aaba9';
-  ctx.font = '10px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-
+  ctx.fillStyle = '#8aaba9'; ctx.font = '10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let tickDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-  while (tickDate <= endDate) {
+  let tickDate = new Date(vStartDate.getFullYear(), vStartDate.getMonth(), 1);
+  while (tickDate <= vEndDate) {
     const x = tToX(tickDate.getTime());
     if (x >= pad.left && x <= W - pad.right) {
-      ctx.strokeStyle = '#e8efed';
-      ctx.lineWidth = 0.5;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(x, pad.top);
-      ctx.lineTo(x, pad.top + chartH);
-      ctx.stroke();
-      const label = tickMonths >= 12 ? tickDate.getFullYear().toString() : monthNames[tickDate.getMonth()] + ' ' + (tickDate.getFullYear() % 100);
+      ctx.strokeStyle = '#e8efed'; ctx.lineWidth = 0.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + chartH); ctx.stroke();
+      let label;
+      if (tickMonths >= 6) label = monthNames[tickDate.getMonth()] + ' ' + tickDate.getFullYear();
+      else label = monthNames[tickDate.getMonth()] + ' ' + (tickDate.getFullYear() % 100);
       ctx.fillText(label, x, pad.top + chartH + 6);
     }
     tickDate.setMonth(tickDate.getMonth() + tickMonths);
   }
 
-  // ── Today marker ──
-  const todayT = today.getTime();
-  if (todayT >= minT && todayT <= maxT) {
+  // Today marker
+  const todayT = Date.now();
+  if (todayT >= vStart && todayT <= vEnd) {
     const todayX = tToX(todayT);
-    ctx.strokeStyle = '#002C2A';
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#002C2A'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.4;
     ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    ctx.moveTo(todayX, pad.top);
-    ctx.lineTo(todayX, pad.top + chartH);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#002C2A';
-    ctx.font = 'bold 9px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
+    ctx.beginPath(); ctx.moveTo(todayX, pad.top); ctx.lineTo(todayX, pad.top + chartH); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#002C2A'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('Today', todayX, pad.top - 2);
+  }
+}
 
-    // Total ARR at today
-    let todayTotal = 0;
-    placed.forEach(p => {
-      if (p.x1t <= todayT && p.x2t > todayT) todayTotal += p.item.arrVal;
-    });
-    if (todayTotal > 0) {
-      const arrY = vToY(todayTotal);
-      ctx.fillStyle = '#002C2A';
-      ctx.font = 'bold 10px Arial';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      const arrLbl = '€' + (todayTotal >= 1000 ? Math.round(todayTotal / 1000) + 'k' : Math.round(todayTotal).toString());
-      ctx.fillText(arrLbl, todayX + 4, Math.max(arrY - 2, pad.top + 10));
+function calcB1B2ARR(t) {
+  // B1 ARR: any active Licensing + any active B1 CI at time t
+  // B2 ARR: any B2 CI that started in the last 12 months at time t
+  if (!ciTL.items) return { b1: 0, b2: 0 };
+  const MS_12M = 365.25 * 86400000;
+  let b1 = 0, b2 = 0;
+  ciTL.items.forEach(it => {
+    const active = it.start <= t && it.end > t;
+    if (it.bucket === 'B1') {
+      // B1: any active licence + any active B1 CI
+      if (active) b1 += it.arrVal;
+    } else if (it.bucket === 'B2') {
+      // B2: started in last 12 months at this point AND still active
+      if (active && it.start >= t - MS_12M) b2 += it.arrVal;
     }
+  });
+  return { b1, b2 };
+}
+
+function drawCICrosshair(e) {
+  if (!ciTLOverlay || !ciTL._tToX) return;
+  const canvas = document.getElementById('ciTimelineCanvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const pad = ciTL._pad;
+  const chartH = ciTL._chartH;
+
+  const octx = ciTLOverlay.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  octx.clearRect(0, 0, rect.width, pad.top + chartH + pad.bottom + 40);
+
+  if (mx < pad.left || mx > rect.width - pad.right || my < pad.top || my > pad.top + chartH) {
+    hideCITooltip();
+    return;
   }
 
-  // ── Store data for interactions ──
-  canvas._ciTimeline = { drawableRects, tToX, vToY, pad, chartH, minT, maxT, placed };
+  const t = ciTL._xToT(mx);
+  const { b1, b2 } = calcB1B2ARR(t);
 
-  // ── Hover tooltip ──
-  canvas.onmousemove = function(e) {
-    const r = canvas.getBoundingClientRect();
-    const mx = e.clientX - r.left;
-    const my = e.clientY - r.top;
-    const c = canvas._ciTimeline;
-    if (!c) return;
+  // Vertical crosshair line
+  octx.strokeStyle = 'rgba(0,44,42,0.5)'; octx.lineWidth = 1;
+  octx.setLineDash([3, 2]);
+  octx.beginPath(); octx.moveTo(mx, pad.top); octx.lineTo(mx, pad.top + chartH); octx.stroke();
+  octx.setLineDash([]);
 
-    let hit = null;
-    for (let i = c.drawableRects.length - 1; i >= 0; i--) {
-      const dr = c.drawableRects[i];
-      if (mx >= dr.x && mx <= dr.x + dr.w && my >= dr.y && my <= dr.y + dr.h) {
-        hit = dr;
-        break;
-      }
+  // Date label at bottom of crosshair
+  const d = new Date(t);
+  const dlbl = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  octx.fillStyle = 'rgba(0,44,42,0.85)'; octx.font = '9px Arial'; octx.textAlign = 'center'; octx.textBaseline = 'top';
+  const lblW = octx.measureText(dlbl).width + 8;
+  const lblX = Math.max(pad.left + lblW / 2, Math.min(rect.width - pad.right - lblW / 2, mx));
+  octx.beginPath();
+  octx.roundRect(lblX - lblW / 2, pad.top + chartH + 1, lblW, 14, 3);
+  octx.fill();
+  octx.fillStyle = '#fff'; octx.fillText(dlbl, lblX, pad.top + chartH + 3);
+
+  // B1/B2 ARR badge near top of crosshair
+  const fmtV = v => '€' + Math.round(v).toLocaleString();
+  const badgeY = pad.top + 4;
+  const total = b1 + b2;
+
+  // Draw badge box
+  const badgeText = 'B1: ' + fmtV(b1) + '  B2: ' + fmtV(b2) + '  Total: ' + fmtV(total);
+  octx.font = 'bold 10px Arial';
+  const bW = octx.measureText(badgeText).width + 16;
+  let bX = mx + 8;
+  if (bX + bW > rect.width - pad.right) bX = mx - bW - 8;
+
+  octx.fillStyle = 'rgba(0,44,42,0.92)';
+  octx.beginPath();
+  octx.roundRect(bX, badgeY, bW, 22, 4);
+  octx.fill();
+
+  // B1 label
+  octx.textAlign = 'left'; octx.textBaseline = 'middle';
+  let tx = bX + 8;
+  octx.fillStyle = '#E8845A'; octx.fillText('B1: ', tx, badgeY + 11);
+  tx += octx.measureText('B1: ').width;
+  octx.fillStyle = '#fff'; octx.fillText(fmtV(b1), tx, badgeY + 11);
+  tx += octx.measureText(fmtV(b1) + '  ').width;
+
+  // B2 label
+  octx.fillStyle = '#2E86AB'; octx.fillText('B2: ', tx, badgeY + 11);
+  tx += octx.measureText('B2: ').width;
+  octx.fillStyle = '#fff'; octx.fillText(fmtV(b2), tx, badgeY + 11);
+  tx += octx.measureText(fmtV(b2) + '  ').width;
+
+  // Total
+  octx.fillStyle = 'rgba(255,255,255,0.6)'; octx.fillText('Total: ', tx, badgeY + 11);
+  tx += octx.measureText('Total: ').width;
+  octx.fillStyle = '#fff'; octx.font = 'bold 11px Arial'; octx.fillText(fmtV(total), tx, badgeY + 11);
+
+  // Also show item tooltip if hovering over a bar
+  showCIBarTooltip(e, mx, my);
+}
+
+function clearCICrosshair() {
+  if (!ciTLOverlay) return;
+  const canvas = document.getElementById('ciTimelineCanvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const octx = ciTLOverlay.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  octx.clearRect(0, 0, rect.width, rect.height + 40);
+}
+
+function showCIBarTooltip(e, mx, my) {
+  const rects = ciTL._drawableRects;
+  if (!rects) return;
+  let hit = null;
+  for (let i = rects.length - 1; i >= 0; i--) {
+    const dr = rects[i];
+    if (mx >= dr.x && mx <= dr.x + dr.w && my >= dr.y && my <= dr.y + dr.h) { hit = dr; break; }
+  }
+
+  let tooltip = document.getElementById('ciTimelineTip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'ciTimelineTip';
+    tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.5;max-width:320px';
+    document.body.appendChild(tooltip);
+  }
+
+  if (!hit) { tooltip.style.display = 'none'; return; }
+
+  const pfLabels = { 'Licensing': 'License', 'Credits': 'Credit', 'PAYG': 'PAYG' };
+  const fmt = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fmtV = v => '€' + Math.round(v).toLocaleString();
+  const isd = new Date(hit.item.start);
+  const ied = new Date(hit.item.end);
+  const bucketColor = hit.item.bucket === 'B1' ? '#E8845A' : '#2E86AB';
+
+  tooltip.innerHTML =
+    '<div style="font-weight:700;margin-bottom:2px">' + (hit.item.name || hit.item.account) + '</div>' +
+    '<div style="opacity:.8">' + hit.item.account + '</div>' +
+    '<div style="margin:3px 0"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + hit.item.color + ';margin-right:4px;vertical-align:middle"></span>' +
+      (pfLabels[hit.item.pf] || hit.item.pf) + ' · <span style="font-weight:700;color:' + bucketColor + '">' + hit.item.bucket + '</span></div>' +
+    '<div style="font-weight:700;font-size:13px;margin:2px 0">ARR: ' + fmtV(hit.item.arrVal) + '</div>' +
+    (hit.item.bv ? '<div style="opacity:.7">Billed: ' + fmtV(hit.item.bv) + '</div>' : '') +
+    '<div style="opacity:.7">' + fmt(isd) + ' → ' + fmt(ied) + '</div>';
+
+  tooltip.style.display = 'block';
+  tooltip.style.left = Math.min(e.clientX + 12, window.innerWidth - 340) + 'px';
+  tooltip.style.top = (e.clientY + 20) + 'px';
+}
+
+function hideCITooltip() {
+  const t = document.getElementById('ciTimelineTip');
+  if (t) t.style.display = 'none';
+}
+
+function handleCIClick(e) {
+  const canvas = document.getElementById('ciTimelineCanvas');
+  if (!canvas || !ciTL._drawableRects) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const rects = ciTL._drawableRects;
+
+  let hit = null;
+  for (let i = rects.length - 1; i >= 0; i--) {
+    const dr = rects[i];
+    if (mx >= dr.x && mx <= dr.x + dr.w && my >= dr.y && my <= dr.y + dr.h) { hit = dr; break; }
+  }
+
+  document.querySelectorAll('#ciTable tbody tr.ci-highlight').forEach(tr => tr.classList.remove('ci-highlight'));
+  if (!hit) return;
+
+  const ciName = hit.item.name;
+  const ciAccount = hit.item.account;
+  document.querySelectorAll('#ciTable tbody tr').forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length < 3) return;
+    if (cells[2].textContent.trim() === ciName && cells[1].textContent.trim() === ciAccount) {
+      tr.classList.add('ci-highlight');
+      tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-
-    let tooltip = document.getElementById('ciTimelineTip');
-    if (!tooltip) {
-      tooltip = document.createElement('div');
-      tooltip.id = 'ciTimelineTip';
-      tooltip.style.cssText = 'position:fixed;background:rgba(0,44,42,.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:11px;pointer-events:none;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);line-height:1.5;max-width:320px';
-      document.body.appendChild(tooltip);
-    }
-
-    if (!hit) {
-      tooltip.style.display = 'none';
-      canvas.style.cursor = 'default';
-      return;
-    }
-    canvas.style.cursor = 'pointer';
-
-    const fmt = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const fmtV = v => '€' + Math.round(v).toLocaleString();
-    const isd = new Date(hit.item.start);
-    const ied = new Date(hit.item.end);
-    const bucketColor = hit.item.bucket === 'B1' ? '#E8845A' : '#2E86AB';
-
-    tooltip.innerHTML =
-      '<div style="font-weight:700;margin-bottom:2px">' + (hit.item.name || hit.item.account) + '</div>' +
-      '<div style="opacity:.8">' + hit.item.account + '</div>' +
-      '<div style="margin:3px 0"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + hit.item.color + ';margin-right:4px;vertical-align:middle"></span>' +
-        (pfLabels[hit.item.pf] || hit.item.pf) + ' · <span style="font-weight:700;color:' + bucketColor + '">' + hit.item.bucket + '</span></div>' +
-      '<div style="font-weight:700;font-size:13px;margin:2px 0">ARR: ' + fmtV(hit.item.arrVal) + '</div>' +
-      (hit.item.bv ? '<div style="opacity:.7">Billed: ' + fmtV(hit.item.bv) + '</div>' : '') +
-      '<div style="opacity:.7">' + fmt(isd) + ' → ' + fmt(ied) + '</div>';
-
-    tooltip.style.display = 'block';
-    tooltip.style.left = Math.min(e.clientX + 12, window.innerWidth - 340) + 'px';
-    tooltip.style.top = (e.clientY - 10) + 'px';
-  };
-
-  canvas.onmouseout = function() {
-    const t = document.getElementById('ciTimelineTip');
-    if (t) t.style.display = 'none';
-    canvas.style.cursor = 'default';
-  };
-
-  // ── Click to highlight in table ──
-  canvas.onclick = function(e) {
-    const r = canvas.getBoundingClientRect();
-    const mx = e.clientX - r.left;
-    const my = e.clientY - r.top;
-    const c = canvas._ciTimeline;
-    if (!c) return;
-
-    let hit = null;
-    for (let i = c.drawableRects.length - 1; i >= 0; i--) {
-      const dr = c.drawableRects[i];
-      if (mx >= dr.x && mx <= dr.x + dr.w && my >= dr.y && my <= dr.y + dr.h) {
-        hit = dr;
-        break;
-      }
-    }
-
-    // Clear previous highlights
-    document.querySelectorAll('#ciTable tbody tr.ci-highlight').forEach(tr => tr.classList.remove('ci-highlight'));
-
-    if (!hit) return;
-
-    // Find matching row in table by CI name and account
-    const ciName = hit.item.name;
-    const ciAccount = hit.item.account;
-    const rows = document.querySelectorAll('#ciTable tbody tr');
-    rows.forEach(tr => {
-      const cells = tr.querySelectorAll('td');
-      if (cells.length < 3) return;
-      const rowName = cells[2].textContent.trim();
-      const rowAccount = cells[1].textContent.trim();
-      if (rowName === ciName && rowAccount === ciAccount) {
-        tr.classList.add('ci-highlight');
-        tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    });
-  };
+  });
 }
 
 function sortCI(colKey) {
