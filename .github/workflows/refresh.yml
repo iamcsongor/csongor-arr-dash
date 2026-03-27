@@ -2,7 +2,7 @@ name: Refresh dashboard data
 
 on:
   schedule:
-    - cron: '0 */4 * * *'   # every 4 hours
+    - cron: '0 * * * *'      # every hour
   workflow_dispatch:          # manual trigger
 
 permissions:

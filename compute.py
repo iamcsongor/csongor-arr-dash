@@ -1226,10 +1226,17 @@ def main():
         samples_data = read_samples(wb, acc_casesafe_to_up, accounts)
 
         # Read last-updated date+time from Summary tab cell C2
+        # In read_only mode, iterate rows to reach the cell reliably
         data_last_updated = ''
         try:
             summary_ws = wb['Summary']
-            c2_val = summary_ws.cell(row=2, column=3).value
+            c2_val = None
+            for row_num, row in enumerate(summary_ws.iter_rows(min_row=1, max_row=3, min_col=1, max_col=5), start=1):
+                cells_info = ', '.join(f"{c.coordinate}={c.value!r}" for c in row if c.value is not None)
+                print(f"    Summary row {row_num}: {cells_info}")
+                if row_num == 2 and len(row) >= 3:
+                    c2_val = row[2].value
+            print(f"  Summary C2 raw value: {c2_val!r} (type: {type(c2_val).__name__})")
             if c2_val:
                 if isinstance(c2_val, datetime.datetime):
                     data_last_updated = c2_val.isoformat()
@@ -1237,7 +1244,7 @@ def main():
                     data_last_updated = datetime.datetime.combine(c2_val, datetime.time()).isoformat()
                 else:
                     data_last_updated = str(c2_val)
-            print(f"  Data last updated (C2): {data_last_updated}")
+            print(f"  Data last updated (C2): {data_last_updated or '(empty)'}")
         except Exception as e:
             print(f"  Could not read Summary C2: {e}")
 
