@@ -1706,7 +1706,7 @@ function renderCITimeline() {
 
   // For a B2 item, find the cutoff: the start date of the B1 Credits CI
   // that overlaps with the B2 item's range (latest start if multiple).
-  // B2 portion before this cutoff = ghost (non-contributing to ARR).
+  // B2 portion AFTER this cutoff = ghost (no longer contributing to ARR).
   function getB2Cutoff(b2Item) {
     let cutoff = null;
     b1CreditsCIs.forEach(b1c => {
@@ -1743,30 +1743,30 @@ function renderCITimeline() {
     }
 
     if (cutoffX !== null && cutoffX > x1 && cutoffX < x2) {
-      // ── Split B2 bar: ghost left portion + filled right portion ──
-      const ghostW = cutoffX - x1;
-      const fillW = x2 - cutoffX;
+      // ── Split B2 bar: filled left (contributing) + ghost right (non-contributing) ──
+      const fillW = cutoffX - x1;
+      const ghostW = x2 - cutoffX;
 
-      // Ghost portion: no fill, dashed darker outline
+      // Filled portion (left — before B1 Credits cutoff, still contributing)
+      ctx.fillStyle = p.item.color; ctx.globalAlpha = 1;
+      ctx.fillRect(x1, yTop, fillW, h);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+      ctx.strokeRect(x1, yTop, fillW, h);
+
+      // Ghost portion (right — after B1 Credits cutoff, no longer contributing)
       ctx.setLineDash([4, 3]);
       ctx.strokeStyle = p.item.color;
       ctx.lineWidth = 1.5;
       ctx.globalAlpha = 0.5;
-      ctx.strokeRect(x1, yTop, ghostW, h);
+      ctx.strokeRect(cutoffX, yTop, ghostW, h);
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-
-      // Filled portion
-      ctx.fillStyle = p.item.color;
-      ctx.fillRect(cutoffX, yTop, fillW, h);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
-      ctx.strokeRect(cutoffX, yTop, fillW, h);
 
       // White separator line at cutoff
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(cutoffX, yTop); ctx.lineTo(cutoffX, yTop + h); ctx.stroke();
 
-      // Labels on filled portion only
+      // Labels on filled portion (left)
       if (fillW > 50 && h > 13) {
         ctx.fillStyle = '#fff';
         ctx.font = h > 20 ? 'bold 10px Arial' : '9px Arial';
@@ -1775,12 +1775,12 @@ function renderCITimeline() {
         let lbl = '€' + valK;
         if (fillW > 90) lbl += ' ' + (pfLabels[p.item.pf] || p.item.pf);
         if (fillW > 150 && h > 18) lbl += ' (' + p.item.bucket + ')';
-        ctx.fillText(lbl, cutoffX + fillW / 2, yTop + h / 2, fillW - 8);
+        ctx.fillText(lbl, x1 + fillW / 2, yTop + h / 2, fillW - 8);
       }
       if (fillW > 22 && h > 10 && !(fillW > 150 && h > 18)) {
         ctx.font = 'bold 7px Arial'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText(p.item.bucket, cutoffX + fillW - 3, yTop + 2);
+        ctx.fillText(p.item.bucket, x1 + fillW - 3, yTop + 2);
       }
     } else {
       // ── Normal solid bar ──
@@ -1856,8 +1856,9 @@ function renderCITimeline() {
 
 function calcB1B2ARR(t) {
   // B1 ARR: any active Licensing + any active B1 CI at time t
-  // B2 ARR: B2 CIs that started in the last 12 months AND started after
-  //         the currently active B1 Credits CI's start date
+  // B2 ARR: B2 CIs that started in the last 12 months AND started before
+  //         the currently active B1 Credits CI's start date (they stop
+  //         contributing once a new B1 Credits CI begins)
   if (!ciTL.items) return { b1: 0, b2: 0 };
   const MS_12M = 365.25 * 86400000;
 
@@ -1878,9 +1879,10 @@ function calcB1B2ARR(t) {
       // B1: any active licence + any active B1 CI
       if (active) b1 += it.arrVal;
     } else if (it.bucket === 'B2') {
-      // B2: active + started in last 12 months + started after active B1 Credits CI start
+      // B2: active + started in last 12 months + started before active B1 Credits CI start
+      // (B2 items stop contributing once a new B1 Credits CI begins)
       if (active && it.start >= t - MS_12M) {
-        if (activeB1CreditsStart === null || it.start >= activeB1CreditsStart) {
+        if (activeB1CreditsStart === null || it.start < activeB1CreditsStart) {
           b2 += it.arrVal;
         }
       }
