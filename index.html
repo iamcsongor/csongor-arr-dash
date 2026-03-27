@@ -2138,12 +2138,9 @@ function renderCEODashboard() {
   const arrChgArrow = arrChg != null ? (arrChg >= 0 ? '▲' : '▼') : '';
   const arrChgStr = arrChg != null ? ((arrChg >= 0 ? '+' : '') + arrChg + '%') : '—';
 
-  // Active customers with LYTD comparison
-  const activeTY = CEO.active_customers_ytd || 0;
-  const activeLY = CEO.active_customers_lytd || 0;
-  const activeDiff = activeTY - activeLY;
-  const activeArrow = activeDiff > 0 ? '▲' : activeDiff < 0 ? '▼' : '—';
-  const activeClr = activeDiff >= 0 ? '#0D9B7A' : '#f87171';
+  // Active customers (Revenue Recon logic: status-based)
+  const activeCust = CEO.active_customers || 0;
+  const totalCust = CEO.total_customers || 0;
 
   function kpiInfo(tip) { return '<span class="kpi-info">i</span><div class="kpi-info-tip">' + tip + '</div>'; }
 
@@ -2158,11 +2155,10 @@ function renderCEODashboard() {
         '<span style="opacity:0.6">EoQ4 \'25: ' + fmtEur(eoq4ARR) + '</span> ' +
         '<span style="color:' + (arrChg >= 0 ? '#0D9B7A' : '#f87171') + ';font-weight:600">' + arrChgArrow + ' ' + arrChgStr + '</span>' +
       '</div></div>' +
-    '<div class="ceo-kpi">' + kpiInfo('Distinct Ultimate Parents with at least one invoicable sample (status &ne; Not reconciled, Not to be Invoiced) completed up to today\'s date this year vs same date last year.') +
-      '<div class="label">Active Customers (YTD)</div><div class="val">' + activeTY + '</div>' +
+    '<div class="ceo-kpi">' + kpiInfo('UPs with Active status (hierarchy live ARR &gt; 0 or testing revenue in last 12 months). Excludes Churned and Inactive.') +
+      '<div class="label">Active Customers</div><div class="val">' + activeCust + '</div>' +
       '<div class="sub" style="margin-top:4px;font-size:10px;color:#6b8a88;line-height:1.3">' +
-        '<span style="opacity:0.6">LYTD: ' + activeLY + '</span> ' +
-        '<span style="color:' + activeClr + ';font-weight:600">' + activeArrow + ' ' + (activeDiff > 0 ? '+' : '') + activeDiff + '</span>' +
+        'of ' + totalCust + ' total' +
       '</div></div>';
 
   drawMoMChart();

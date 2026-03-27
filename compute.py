@@ -1262,6 +1262,13 @@ def main():
         # 6. Build BCL
         bcl_data = extract_big_customer_list(accounts, all_ci, samples_data, acc_casesafe_to_up)
 
+        # Active customers — use Revenue Recon logic (status-based, not YTD samples)
+        active_count = sum(1 for r in bcl_data['rows'] if r.get('status', '').lower() not in ('churned', 'inactive'))
+        total_count = len(bcl_data['rows'])
+        ceo_data['active_customers'] = active_count
+        ceo_data['total_customers'] = total_count
+        print(f"    Active customers (recon logic): {active_count} of {total_count}")
+
         # Build output
         print("\nBuilding output JSON...")
         full_output = {
