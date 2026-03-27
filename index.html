@@ -1702,7 +1702,7 @@ function renderCITimeline() {
   }
 
   // Precompute B1 Credits CIs for B2 split rendering
-  const b1CreditsCIs = items.filter(it => it.bucket === 'B1' && it.pf === 'Credits');
+  const b1CreditsCIs = (ciTL.items || []).filter(it => it.bucket === 'B1' && it.pf === 'Credits');
 
   // For a B2 item, find the cutoff: the start date of the B1 Credits CI
   // that overlaps with the B2 item's range (latest start if multiple).
