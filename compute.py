@@ -1225,37 +1225,18 @@ def main():
         print("\nReading samples...")
         samples_data = read_samples(wb, acc_casesafe_to_up, accounts)
 
-        # Read last-updated date+time from the workbook
-        # Try multiple possible sheet names and cell locations
+        # Read last-updated date+time from summary sheet cell C2
         data_last_updated = ''
-        print(f"  Available sheets: {wb.sheetnames}")
         try:
-            # Try known sheet name variations
             summary_ws = None
-            for name in ['Summary', 'summary', 'Dashboard', 'Info', 'Cover']:
+            for name in ['Summary', 'summary']:
                 if name in wb.sheetnames:
                     summary_ws = wb[name]
-                    print(f"  Found sheet: '{name}'")
                     break
-            if summary_ws is None:
-                # Fall back: try first sheet and dump first few rows
-                first_name = wb.sheetnames[0] if wb.sheetnames else None
-                if first_name:
-                    print(f"  No Summary sheet found, dumping first 3 rows of each sheet for debug:")
-                    for sname in wb.sheetnames[:6]:
-                        ws_debug = wb[sname]
-                        for row_num, row in enumerate(ws_debug.iter_rows(min_row=1, max_row=3, min_col=1, max_col=6), start=1):
-                            cells_info = ', '.join(f"{c.coordinate}={c.value!r}" for c in row if c.value is not None)
-                            if cells_info:
-                                print(f"    [{sname}] row {row_num}: {cells_info}")
-            else:
+            if summary_ws:
                 c2_val = None
-                for row_num, row in enumerate(summary_ws.iter_rows(min_row=1, max_row=3, min_col=1, max_col=5), start=1):
-                    cells_info = ', '.join(f"{c.coordinate}={c.value!r}" for c in row if c.value is not None)
-                    print(f"    row {row_num}: {cells_info}")
-                    if row_num == 2 and len(row) >= 3:
-                        c2_val = row[2].value
-                print(f"  C2 raw value: {c2_val!r} (type: {type(c2_val).__name__})")
+                for row in summary_ws.iter_rows(min_row=2, max_row=2, min_col=3, max_col=3):
+                    c2_val = row[0].value
                 if c2_val:
                     if isinstance(c2_val, datetime.datetime):
                         data_last_updated = c2_val.isoformat()
@@ -1263,7 +1244,7 @@ def main():
                         data_last_updated = datetime.datetime.combine(c2_val, datetime.time()).isoformat()
                     else:
                         data_last_updated = str(c2_val)
-            print(f"  Data last updated: {data_last_updated or '(empty)'}")
+            print(f"  Data last updated (summary C2): {data_last_updated or '(not found)'}")
         except Exception as e:
             print(f"  Could not read last updated: {e}")
 
