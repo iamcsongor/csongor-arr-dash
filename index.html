@@ -1704,21 +1704,22 @@ function renderCITimeline() {
   // Precompute B1 Credits CIs for B2 split rendering
   const b1CreditsCIs = (ciTL.items || []).filter(it => it.bucket === 'B1' && it.pf === 'Credits');
 
-  // For a B2 item, find the cutoff: the start date of the B1 Credits CI
-  // that overlaps with the B2 item's range (latest start if multiple).
+  // For a B2 item, find the cutoff: the start of the next B1 Credits "era".
+  // A new era begins when a B1 Credits CI starts and no earlier B1 Credits CI
+  // is still active — i.e. the main annual renewal, not a small add-on mid-year.
   // B2 portion AFTER this cutoff = ghost (no longer contributing to ARR).
+  const b1CreditsSorted = [...b1CreditsCIs].sort((a, b) => a.start - b.start);
   function getB2Cutoff(b2Item) {
-    let cutoff = null;
-    b1CreditsCIs.forEach(b1c => {
-      // B1 Credits CI overlaps with B2 item's time range
-      if (b1c.start < b2Item.end && b1c.end > b2Item.start) {
-        // Only relevant if B1 Credits started after B2 item started
-        if (b1c.start > b2Item.start) {
-          if (cutoff === null || b1c.start < cutoff) cutoff = b1c.start;
-        }
-      }
-    });
-    return cutoff;
+    for (const b1c of b1CreditsSorted) {
+      if (b1c.start <= b2Item.start) continue; // must start after B2 item
+      if (b1c.start >= b2Item.end) continue;   // must be within B2's range
+      // Only count as cutoff if no earlier B1 Credits CI is still active at b1c.start
+      const olderStillActive = b1CreditsSorted.some(older =>
+        older.start < b1c.start && older.end > b1c.start
+      );
+      if (!olderStillActive) return b1c.start;
+    }
+    return null;
   }
 
   // Draw visible rectangles
@@ -1862,11 +1863,12 @@ function calcB1B2ARR(t) {
   if (!ciTL.items) return { b1: 0, b2: 0 };
   const MS_12M = 365.25 * 86400000;
 
-  // Find the currently active B1 Credits CI (latest start date if multiple)
+  // Find the currently active B1 Credits CI (earliest start = main annual renewal,
+  // not a mid-year add-on). B2 items that started after this date contribute.
   let activeB1CreditsStart = null;
   ciTL.items.forEach(it => {
     if (it.bucket === 'B1' && it.pf === 'Credits' && it.start <= t && it.end > t) {
-      if (activeB1CreditsStart === null || it.start > activeB1CreditsStart) {
+      if (activeB1CreditsStart === null || it.start < activeB1CreditsStart) {
         activeB1CreditsStart = it.start;
       }
     }
