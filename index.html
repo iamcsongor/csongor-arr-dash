@@ -1714,7 +1714,7 @@ function renderCITimeline() {
       if (b1c.start < b2Item.end && b1c.end > b2Item.start) {
         // Only relevant if B1 Credits started after B2 item started
         if (b1c.start > b2Item.start) {
-          if (cutoff === null || b1c.start > cutoff) cutoff = b1c.start;
+          if (cutoff === null || b1c.start < cutoff) cutoff = b1c.start;
         }
       }
     });
