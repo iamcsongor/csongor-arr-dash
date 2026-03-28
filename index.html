@@ -2899,9 +2899,11 @@ function drawCumChart() {
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
     const intercept = (sumY - slope * sumX) / n;
     // Build forecast from lastDay to end of month
+    // Anchor at the actual MTD value so the dashed line starts at the marker
+    const anchorVal = tm[lastDay - 1] || 0;
     forecastLine = [];
     for (let d = lastDay; d <= maxDays; d++) {
-      forecastLine.push({ day: d - 1, val: Math.max(0, intercept + slope * d) });
+      forecastLine.push({ day: d - 1, val: Math.max(0, anchorVal + slope * (d - lastDay)) });
     }
   }
 
