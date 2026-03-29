@@ -2666,6 +2666,11 @@ function drawMoMCumulative() {
     return 11;
   }
 
+  // 2026 testing revenue target (monthly, from spreadsheet row 151)
+  const target2026Monthly = [429000, 456000, 476000, 372000, 454000, 305000, 267000, 268000, 350000, 375000, 435000, 584000];
+  const target2026Cum = [];
+  { let s = 0; for (let m = 0; m < 12; m++) { s += target2026Monthly[m]; target2026Cum.push(s); } }
+
   // Find max cumulative value
   let maxVal = 1;
   displayYears.forEach(yr => {
@@ -2676,6 +2681,8 @@ function drawMoMCumulative() {
     // Also check full year for prior years
     if (yr < ty && cumData[yr][11] > maxVal) maxVal = cumData[yr][11];
   });
+  // Include target in max
+  target2026Cum.forEach(v => { if (v > maxVal) maxVal = v; });
 
   const step = momNiceStep(maxVal);
   const niceMax = Math.ceil(maxVal / step) * step;
@@ -2769,6 +2776,22 @@ function drawMoMCumulative() {
     }
   });
 
+  // 2026 Target line (gray, dashed)
+  ctx.strokeStyle = '#999';
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  for (let m = 0; m < 12; m++) {
+    const x = monthX(m);
+    const y = toY(target2026Cum[m]);
+    if (m === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
   // Vertical dashed line at current month for reference
   ctx.strokeStyle = '#002C2A';
   ctx.globalAlpha = 0.15;
@@ -2796,7 +2819,7 @@ function drawMoMCumulative() {
   });
 
   // Store for hover
-  canvas._mom = { cumData, yearColors, displayYears, monthLabels, ty, yearData, niceMax, toY, monthX, pad, cH, currentMonth: currentMonth };
+  canvas._mom = { cumData, yearColors, displayYears, monthLabels, ty, yearData, niceMax, toY, monthX, pad, cH, currentMonth: currentMonth, target2026Cum };
 
   // Hover
   canvas.onmousemove = function(e) {
@@ -2830,6 +2853,11 @@ function drawMoMCumulative() {
       const monthly = (c.yearData[yr] || [])[nearestM] || 0;
       html += '<div style="display:flex;justify-content:space-between;gap:14px' + (isTy ? ';font-weight:600' : ';opacity:.7') + '"><span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + c.yearColors[yr] + '"></span>' + yr + '</span><span>€' + Math.round(v).toLocaleString() + '</span></div>';
     });
+    // Target line in tooltip
+    if (c.target2026Cum) {
+      const tv = c.target2026Cum[nearestM] || 0;
+      html += '<div style="display:flex;justify-content:space-between;gap:14px;opacity:.7"><span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#999"></span>Target</span><span>€' + Math.round(tv).toLocaleString() + '</span></div>';
+    }
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 14) + 'px';
@@ -2851,6 +2879,7 @@ function drawMoMCumulative() {
       legHtml += '<span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed ' + color + ';opacity:.5;vertical-align:middle;margin-right:4px"></span>' + yr + '</span>';
     }
   });
+  legHtml += '<span style="margin-left:6px"><span style="display:inline-block;width:16px;height:0;border-top:1.5px dashed #999;opacity:.5;vertical-align:middle;margin-right:4px"></span>Target</span>';
   legHtml += '<span style="margin-left:6px"><span style="display:inline-block;width:8px;height:8px;transform:rotate(45deg);background:#5e8885;vertical-align:middle;margin-right:4px"></span>YTD</span>';
   legHtml += '</div>';
   document.getElementById('momLegend').innerHTML = legHtml;
